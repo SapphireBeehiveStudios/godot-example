@@ -1,0 +1,49 @@
+#!/bin/bash
+# Pre-commit hook for Godot project
+# Runs unit tests before allowing commits
+#
+# Installation:
+#   git config core.hooksPath .githooks
+
+set -e  # Exit on error
+
+echo ""
+echo "=========================================="
+echo "Running pre-commit tests..."
+echo "=========================================="
+echo ""
+
+# Check if godot is available
+if ! command -v godot &> /dev/null; then
+    echo "ERROR: godot command not found!"
+    echo "Please ensure Godot is installed and in your PATH."
+    exit 1
+fi
+
+# Check if test_runner.gd exists
+if [ ! -f "tests/test_runner.gd" ]; then
+    echo "ERROR: tests/test_runner.gd not found!"
+    echo "Cannot run tests without the test runner."
+    exit 1
+fi
+
+# Run the test suite
+if godot --headless -s res://tests/test_runner.gd; then
+    echo ""
+    echo "=========================================="
+    echo "✓ All tests passed! Proceeding with commit."
+    echo "=========================================="
+    echo ""
+    exit 0
+else
+    echo ""
+    echo "=========================================="
+    echo "✗ Tests failed! Commit blocked."
+    echo "=========================================="
+    echo ""
+    echo "Please fix the failing tests before committing."
+    echo "To skip this hook (not recommended), use:"
+    echo "  git commit --no-verify"
+    echo ""
+    exit 1
+fi
