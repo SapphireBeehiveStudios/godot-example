@@ -90,11 +90,14 @@ godot-example/
 
 ## Development
 
-### Headless Mode
+### Testing
 
-This project can be run in headless mode (no display server) for CI/CD and automated testing:
+This project includes a comprehensive test suite that can be run in headless mode:
 
 ```bash
+# Run all unit tests
+godot --headless -s res://tests/test_runner.gd
+
 # Validate project scripts and scenes
 godot --headless --validate-project
 
@@ -102,13 +105,41 @@ godot --headless --validate-project
 godot --headless --check-only
 ```
 
+#### Pre-commit Hooks
+
+The project includes pre-commit hooks that automatically run the test suite before allowing commits:
+
+**Installation:**
+```bash
+git config core.hooksPath .githooks
+```
+
+**What it does:**
+- Runs the full test suite before each commit
+- Blocks the commit if any tests fail
+- Ensures all committed code passes tests
+
+**Bypassing the hook (not recommended):**
+```bash
+git commit --no-verify
+```
+
+Only bypass the hook if you have a good reason and understand the implications.
+
 ### Contributing
 
 1. Create a feature branch (`git checkout -b feature/amazing-feature`)
-2. Make your changes
-3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. **Install pre-commit hooks** (recommended):
+   ```bash
+   git config core.hooksPath .githooks
+   ```
+   This will automatically run tests before each commit to ensure code quality.
+3. Make your changes
+4. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+   - Tests will run automatically before the commit
+   - Commit will be blocked if tests fail
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request
 
 ### Branch Protection
 
