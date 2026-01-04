@@ -1,5 +1,5 @@
 extends Node
-## Tests for 3-floor run progression and difficulty ramp
+## Tests for infinite floor progression and difficulty scaling
 ## Part of EPIC 7 - Issue #44
 
 const DifficultyConfig = preload("res://scripts/difficulty_config.gd")
@@ -9,7 +9,7 @@ var tests_passed := 0
 var tests_failed := 0
 
 func run_all() -> Dictionary:
-	print("Testing Floor Progression System")
+	print("Testing Floor Progression System (Infinite Mode)")
 
 	# Difficulty config tests
 	test_difficulty_params_floor_1()
@@ -24,8 +24,8 @@ func run_all() -> Dictionary:
 	test_progression_advance_floor()
 	test_progression_floor_1_to_2()
 	test_progression_floor_2_to_3()
-	test_progression_floor_3_complete_wins()
-	test_progression_cannot_advance_past_floor_3()
+	test_progression_infinite_continues()
+	test_progression_can_advance_indefinitely()
 	test_progression_reset()
 
 	# Dungeon generation with difficulty
@@ -66,27 +66,30 @@ func test_difficulty_params_floor_1() -> void:
 	var params = DifficultyConfig.get_floor_params(1)
 	assert_eq(params.floor_number, 1, "Floor 1 number")
 	assert_eq(params.guard_count, 1, "Floor 1 has 1 guard")
-	assert_float_eq(params.wall_density, 0.25, "Floor 1 wall density")
+	assert_float_eq(params.wall_density, 0.2, "Floor 1 wall density")
 
 func test_difficulty_params_floor_2() -> void:
 	var params = DifficultyConfig.get_floor_params(2)
 	assert_eq(params.floor_number, 2, "Floor 2 number")
-	assert_eq(params.guard_count, 2, "Floor 2 has 2 guards")
-	assert_float_eq(params.wall_density, 0.30, "Floor 2 wall density")
+	# Guards scale: 1 + (floor-1)/2 = 1 + 0 = 1
+	assert_eq(params.guard_count, 1, "Floor 2 has 1 guard")
+	assert_float_eq(params.wall_density, 0.22, "Floor 2 wall density")
 
 func test_difficulty_params_floor_3() -> void:
 	var params = DifficultyConfig.get_floor_params(3)
 	assert_eq(params.floor_number, 3, "Floor 3 number")
-	assert_eq(params.guard_count, 3, "Floor 3 has 3 guards")
-	assert_float_eq(params.wall_density, 0.35, "Floor 3 wall density")
+	# Guards scale: 1 + (floor-1)/2 = 1 + 1 = 2
+	assert_eq(params.guard_count, 2, "Floor 3 has 2 guards")
+	assert_float_eq(params.wall_density, 0.24, "Floor 3 wall density")
 
 func test_difficulty_ramp_guard_count() -> void:
+	# Guards increase every 2 floors: floor 1-2 have 1, floor 3-4 have 2, etc.
 	var floor1 = DifficultyConfig.get_floor_params(1)
-	var floor2 = DifficultyConfig.get_floor_params(2)
 	var floor3 = DifficultyConfig.get_floor_params(3)
+	var floor5 = DifficultyConfig.get_floor_params(5)
 
-	assert_true(floor1.guard_count < floor2.guard_count, "Guards increase from floor 1 to 2")
-	assert_true(floor2.guard_count < floor3.guard_count, "Guards increase from floor 2 to 3")
+	assert_true(floor1.guard_count < floor3.guard_count, "Guards increase from floor 1 to 3")
+	assert_true(floor3.guard_count < floor5.guard_count, "Guards increase from floor 3 to 5")
 
 func test_difficulty_ramp_wall_density() -> void:
 	var floor1 = DifficultyConfig.get_floor_params(1)
@@ -97,9 +100,11 @@ func test_difficulty_ramp_wall_density() -> void:
 	assert_true(floor2.wall_density < floor3.wall_density, "Wall density increases from floor 2 to 3")
 
 func test_is_final_floor() -> void:
+	# Infinite mode - no floor is ever final
 	assert_false(DifficultyConfig.is_final_floor(1), "Floor 1 is not final")
-	assert_false(DifficultyConfig.is_final_floor(2), "Floor 2 is not final")
-	assert_true(DifficultyConfig.is_final_floor(3), "Floor 3 is final")
+	assert_false(DifficultyConfig.is_final_floor(3), "Floor 3 is not final")
+	assert_false(DifficultyConfig.is_final_floor(10), "Floor 10 is not final")
+	assert_false(DifficultyConfig.is_final_floor(100), "Floor 100 is not final")
 
 # ============================================================================
 # Run Progression Tests
@@ -136,37 +141,28 @@ func test_progression_floor_2_to_3() -> void:
 
 	assert_eq(result, "continue", "Floor 2 complete continues to floor 3")
 	assert_eq(manager.get_current_floor(), 3, "Now on floor 3")
-	assert_true(manager.is_final_floor(), "Floor 3 is final")
+	assert_false(manager.is_final_floor(), "Floor 3 is not final (infinite mode)")
 
-func test_progression_floor_3_complete_wins() -> void:
+func test_progression_infinite_continues() -> void:
 	var manager = RunProgressionManager.new(12345)
 
-	# Track if run won callback was called using a dictionary (mutable)
-	var callback_state = {"run_won": false}
-	manager.set_callbacks(
-		func(_floor): pass,
-		func(): callback_state["run_won"] = true
-	)
+	# Complete many floors - all should continue (infinite mode)
+	for i in range(10):
+		var result = manager.complete_floor()
+		assert_eq(result, "continue", "Floor %d complete continues" % (i + 1))
 
-	# Complete floors 1, 2, and 3
-	manager.complete_floor()  # 1 -> 2
-	manager.complete_floor()  # 2 -> 3
-	var result = manager.complete_floor()  # 3 -> WIN
+	assert_eq(manager.get_current_floor(), 11, "Advanced to floor 11")
+	assert_false(manager.is_run_complete(), "Infinite run is never complete")
 
-	assert_eq(result, "won", "Floor 3 complete wins the run")
-	assert_true(callback_state["run_won"], "Run won callback called")
-
-func test_progression_cannot_advance_past_floor_3() -> void:
+func test_progression_can_advance_indefinitely() -> void:
 	var manager = RunProgressionManager.new(12345)
 
-	# Advance to floor 3
-	manager.advance_floor()  # -> 2
-	manager.advance_floor()  # -> 3
+	# Advance well past floor 3
+	for i in range(20):
+		var result = manager.advance_floor()
+		assert_true(result, "Can always advance in infinite mode")
 
-	# Try to advance past floor 3
-	var result = manager.advance_floor()
-	assert_false(result, "Cannot advance past floor 3")
-	assert_eq(manager.get_current_floor(), 3, "Still on floor 3")
+	assert_eq(manager.get_current_floor(), 21, "Advanced to floor 21")
 
 func test_progression_reset() -> void:
 	var manager = RunProgressionManager.new(12345)
@@ -202,9 +198,9 @@ func test_generate_dungeon_for_floor_2() -> void:
 	var result = manager.generate_dungeon_for_current_floor()
 	assert_true(result.success, "Floor 2 dungeon generated successfully")
 
-	# Check guard count for floor 2
+	# Check guard count for floor 2 (guards scale: 1 + (floor-1)/2)
 	var guard_count = manager.get_guard_count_for_current_floor()
-	assert_eq(guard_count, 2, "Floor 2 should have 2 guards")
+	assert_eq(guard_count, 1, "Floor 2 should have 1 guard")
 
 func test_generate_dungeon_for_floor_3() -> void:
 	var manager = RunProgressionManager.new(12345, 10, 8)
@@ -214,9 +210,9 @@ func test_generate_dungeon_for_floor_3() -> void:
 	var result = manager.generate_dungeon_for_current_floor()
 	assert_true(result.success, "Floor 3 dungeon generated successfully")
 
-	# Check guard count for floor 3
+	# Check guard count for floor 3 (guards scale: 1 + (floor-1)/2 = 2)
 	var guard_count = manager.get_guard_count_for_current_floor()
-	assert_eq(guard_count, 3, "Floor 3 should have 3 guards")
+	assert_eq(guard_count, 2, "Floor 3 should have 2 guards")
 
 func test_floor_seed_determinism() -> void:
 	# Two managers with same seed should generate identical dungeons per floor

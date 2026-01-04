@@ -97,8 +97,11 @@ static func _generate_random_grid(width: int, height: int, rng: RandomNumberGene
 	for y in range(height):
 		var row: Array = []
 		for x in range(width):
-			# Place walls with given probability
-			if rng.randf() < wall_density:
+			# Always place walls on the boundary
+			if x == 0 or x == width - 1 or y == 0 or y == height - 1:
+				row.append(Tile.WALL)
+			# Place walls with given probability for interior
+			elif rng.randf() < wall_density:
 				row.append(Tile.WALL)
 			else:
 				row.append(Tile.FLOOR)

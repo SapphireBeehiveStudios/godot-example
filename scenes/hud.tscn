@@ -1,6 +1,10 @@
-[gd_scene load_steps=2 format=3 uid="uid://cpskqg1k8m2i8"]
+[gd_scene load_steps=3 format=3 uid="uid://cpskqg1k8m2i8"]
 
 [ext_resource type="Script" path="res://scripts/hud.gd" id="1"]
+
+[sub_resource type="SystemFont" id="SystemFont_mono"]
+font_names = PackedStringArray("monospace", "Courier New", "Courier", "Monaco", "Menlo")
+subpixel_positioning = 0
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1")
@@ -45,6 +49,8 @@ text = "Score: 0"
 [node name="GridDisplay" type="RichTextLabel" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_fonts/normal_font = SubResource("SystemFont_mono")
+theme_override_font_sizes/normal_font_size = 18
 bbcode_enabled = true
 text = "[center][color=gray]Game grid will be displayed here[/color][/center]"
 fit_content = true

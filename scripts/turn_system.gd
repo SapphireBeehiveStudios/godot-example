@@ -90,10 +90,10 @@ func set_grid_tile(pos: Vector2i, tile_type: String, properties: Dictionary = {}
 		grid[pos][key] = properties[key]
 
 func get_grid_tile(pos: Vector2i) -> Dictionary:
-	"""Get a tile from the grid, or return floor if not set."""
+	"""Get a tile from the grid, or return wall if not set (out of bounds)."""
 	if pos in grid:
 		return grid[pos]
-	return {"type": "floor"}
+	return {"type": "wall"}
 
 func is_tile_walkable(pos: Vector2i) -> bool:
 	"""Check if a tile can be walked on."""

@@ -51,13 +51,13 @@ func update_stats() -> void:
 		score_label.text = "Score: ?"
 		return
 
-	floor_label.text = "Floor: %d" % (game_state.get_floor_number() + 1)
-	turn_label.text = "Turn: %d" % game_state.get_turn_count()
+	floor_label.text = "Floor: %d" % game_state["get_floor_number"].call()
+	turn_label.text = "Turn: %d" % game_state["get_turn_count"].call()
 
-	var shard_text = "Yes" if game_state.has_shard() else "No"
-	inventory_label.text = "Keycards: %d | Shard: %s" % [game_state.get_keycards(), shard_text]
+	var shard_text = "◆ SHARD" if game_state["has_shard"].call() else "No Shard"
+	inventory_label.text = shard_text
 
-	score_label.text = "Score: %d" % game_state.get_score()
+	score_label.text = "Score: %d" % game_state["get_score"].call()
 
 func update_message_log() -> void:
 	"""Update the message log display."""

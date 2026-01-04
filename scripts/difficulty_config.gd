@@ -1,8 +1,8 @@
 extends RefCounted
-## DifficultyConfig - Manages difficulty scaling across floors
+## DifficultyConfig - Manages difficulty scaling across infinite floors
 ##
-## Provides deterministic difficulty parameters based on floor number.
-## Part of EPIC 7 - Issue #44
+## Provides scaling difficulty parameters based on floor number.
+## Difficulty increases infinitely with diminishing returns on wall density.
 
 class_name DifficultyConfig
 
@@ -17,33 +17,22 @@ class FloorParams:
 		guard_count = guards
 		wall_density = density
 
-## Get difficulty parameters for a specific floor (1-indexed)
+## Get difficulty parameters for a specific floor (1-indexed, infinite scaling)
 static func get_floor_params(floor_number: int) -> FloorParams:
-	# Clamp floor number to valid range (1-3)
-	var floor = clampi(floor_number, 1, 3)
+	var floor = maxi(floor_number, 1)
 
-	# Scale difficulty based on floor
-	match floor:
-		1:
-			# Floor 1: Easy - 1 guard, low wall density
-			return FloorParams.new(1, 1, 0.25)
-		2:
-			# Floor 2: Medium - 2 guards, medium wall density
-			return FloorParams.new(2, 2, 0.30)
-		3:
-			# Floor 3: Hard - 3 guards, higher wall density
-			return FloorParams.new(3, 3, 0.35)
-		_:
-			# Fallback (should never reach here)
-			return FloorParams.new(1, 1, 0.25)
+	# Guards scale: starts at 1, adds 1 every 2 floors, caps at 8
+	var guards = mini(1 + (floor - 1) / 2, 8)
 
-## Maximum number of floors in a run
-const MAX_FLOORS: int = 3
+	# Wall density: starts at 0.2, increases by 0.02 per floor, caps at 0.45
+	var density = minf(0.2 + (floor - 1) * 0.02, 0.45)
 
-## Check if a floor number is valid
+	return FloorParams.new(floor, guards, density)
+
+## Check if a floor number is valid (any positive number is valid now)
 static func is_valid_floor(floor_number: int) -> bool:
-	return floor_number >= 1 and floor_number <= MAX_FLOORS
+	return floor_number >= 1
 
-## Check if this is the final floor
-static func is_final_floor(floor_number: int) -> bool:
-	return floor_number >= MAX_FLOORS
+## Infinite mode - never a final floor
+static func is_final_floor(_floor_number: int) -> bool:
+	return false
