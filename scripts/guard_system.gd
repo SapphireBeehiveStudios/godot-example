@@ -14,6 +14,7 @@ signal message_generated(text: String, type: String)
 ## Guard state enumeration
 enum GuardState {
 	PATROL,  ## Random walk patrol behavior
+	ALERT,   ## Alerted state (Issue #94 - trap triggered)
 	CHASE    ## (Future) Pursuit of player
 }
 
@@ -98,6 +99,10 @@ func process_guard_phase() -> Dictionary:
 				GuardState.PATROL:
 					_process_patrol(guard)
 					result.guards_moved += 1
+				GuardState.ALERT:
+					# Alerted guards continue patrol for now (future: implement alert behavior)
+					_process_patrol(guard)
+					result.guards_moved += 1
 				GuardState.CHASE:
 					# Future: implement chase behavior
 					pass
@@ -179,3 +184,24 @@ func get_guard_positions() -> Array[Vector2i]:
 	for guard in guards:
 		positions.append(guard.position)
 	return positions
+
+func alert_guards_in_radius(center: Vector2i, radius: int) -> int:
+	"""
+	Alert all guards within a given radius of a position (Issue #94).
+
+	Guards are alerted if their Manhattan distance from center is <= radius.
+	Alerted guards change to ALERT state.
+
+	Returns:
+		int: Number of guards alerted
+	"""
+	var alerted_count := 0
+
+	for guard in guards:
+		var distance = abs(guard.position.x - center.x) + abs(guard.position.y - center.y)
+		if distance <= radius:
+			if guard.state != GuardState.ALERT:
+				guard.state = GuardState.ALERT
+				alerted_count += 1
+
+	return alerted_count
