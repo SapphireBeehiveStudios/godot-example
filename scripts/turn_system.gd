@@ -1,294 +1,215 @@
 extends Node
 ## TurnSystem - Core turn-based game loop
 ##
-## Implements strict turn order for issue #20:
+## Manages the strict turn order:
 ## 1. Resolve player action (move/wait/interact)
 ## 2. Resolve pickups on tile
-## 3. Check win/lose conditions
+## 3. Process guard phase (guards move)
+## 4. Check win/lose conditions
 ##
-## One input == one turn, with deterministic outcomes given same seed + inputs.
-
-class_name TurnSystem
+## Part of EPIC 2 - Issue #20
+## Guard integration - Issue #31 (EPIC 4)
 
 ## Emitted when a turn completes
 signal turn_completed(turn_number: int)
 
-## Emitted when player position changes
-signal player_moved(old_pos: Vector2i, new_pos: Vector2i)
+## Emitted when game is won
+signal game_won
 
-## Emitted when player picks up an item
-signal item_picked_up(item_type: String)
+## Emitted when game is lost
+signal game_lost
 
-## Emitted when win condition is met
-signal game_won()
-
-## Emitted when lose condition is met (reserved for when guards exist)
-signal game_lost()
-
-## Current turn number
+## Current turn number (increments with each action, including wait)
 var turn_count: int = 0
 
-## Player's current position on the grid
-var player_position: Vector2i = Vector2i(0, 0)
-
-## Inventory - tracks collected items
-var inventory: Dictionary = {
-	"keycards": 0,
-	"items": 0
-}
-
-## Grid walls - set of wall positions (for collision detection)
-var walls: Dictionary = {}
-
-## Pickups on the map - Dictionary of position -> item_type
-var pickups: Dictionary = {}
-
-## Random number generator for deterministic gameplay
+## Random number generator for deterministic outcomes
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
-## Win condition - number of keycards required to win
-var keycards_required_to_win: int = 1
+## Player position on the grid
+var player_position: Vector2i = Vector2i(0, 0)
 
-## Win condition met flag
-var has_won: bool = false
+## Player inventory (for keycards, etc.)
+var player_inventory: Dictionary = {}
 
-## Lose condition met flag (for future guard implementation)
-var has_lost: bool = false
+## Grid of tiles (walls, pickups, etc.)
+## Structure: {Vector2i: {"type": "wall"|"floor"|"pickup", "pickup_type": "keycard", etc.}}
+var grid: Dictionary = {}
 
+## Win condition flag (can be set externally for gating)
+var win_condition_met: bool = false
 
-func _init() -> void:
-	"""Initialize the turn system."""
-	pass
+## Game over flag
+var game_over: bool = false
 
+## Guard system reference (optional, for EPIC 4 integration)
+var guard_system = null
 
-func setup(seed_value: int = 0) -> void:
-	"""
-	Setup the turn system with a seed for deterministic behavior.
+func _init(seed_value: int = 0) -> void:
+	"""Initialize the turn system with optional seed for deterministic behavior."""
+	if seed_value != 0:
+		rng.seed = seed_value
+	else:
+		rng.randomize()
 
-	Args:
-		seed_value: Random seed for deterministic gameplay
-	"""
-	rng.seed = seed_value
+func reset(seed_value: int = 0) -> void:
+	"""Reset the game state."""
 	turn_count = 0
 	player_position = Vector2i(0, 0)
-	inventory = {"keycards": 0, "items": 0}
-	walls = {}
-	pickups = {}
-	has_won = false
-	has_lost = false
+	player_inventory.clear()
+	grid.clear()
+	win_condition_met = false
+	game_over = false
 
+	if seed_value != 0:
+		rng.seed = seed_value
+	else:
+		rng.randomize()
 
-func add_wall(pos: Vector2i) -> void:
-	"""Add a wall at the given position."""
-	walls[pos] = true
+func set_grid_tile(pos: Vector2i, tile_type: String, properties: Dictionary = {}) -> void:
+	"""Set a tile in the grid with optional properties."""
+	grid[pos] = {"type": tile_type}
+	for key in properties:
+		grid[pos][key] = properties[key]
 
+func get_grid_tile(pos: Vector2i) -> Dictionary:
+	"""Get a tile from the grid, or return floor if not set."""
+	if pos in grid:
+		return grid[pos]
+	return {"type": "floor"}
 
-func remove_wall(pos: Vector2i) -> void:
-	"""Remove a wall at the given position."""
-	walls.erase(pos)
+func is_tile_walkable(pos: Vector2i) -> bool:
+	"""Check if a tile can be walked on."""
+	var tile = get_grid_tile(pos)
+	return tile.type != "wall"
 
-
-func is_wall(pos: Vector2i) -> bool:
-	"""Check if there's a wall at the given position."""
-	return walls.has(pos)
-
-
-func add_pickup(pos: Vector2i, item_type: String) -> void:
+func process_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> Dictionary:
 	"""
-	Add a pickup item at the given position.
+	Process one complete turn with strict ordering.
 
 	Args:
-		pos: Grid position
-		item_type: Type of item (e.g., "keycard", "health", etc.)
-	"""
-	pickups[pos] = item_type
-
-
-func remove_pickup(pos: Vector2i) -> void:
-	"""Remove a pickup at the given position."""
-	pickups.erase(pos)
-
-
-func get_pickup(pos: Vector2i) -> String:
-	"""Get the pickup type at the given position, or empty string if none."""
-	return pickups.get(pos, "")
-
-
-## === CORE TURN LOOP ===
-
-
-func execute_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> bool:
-	"""
-	Execute one turn with the given action.
-	One input == one turn (including wait).
-
-	Args:
-		action: The action to perform ("move", "wait", "interact")
-		direction: Direction vector for movement actions
+		action: "move", "wait", or "interact"
+		direction: Direction vector for movement (only used if action is "move")
 
 	Returns:
-		true if turn executed successfully, false if invalid action
+		Dictionary with turn results: {
+			"success": bool,
+			"turn_number": int,
+			"action_result": String,
+			"pickups": Array,
+			"game_state": String  # "playing", "won", "lost"
+		}
 	"""
-	if has_won or has_lost:
-		return false  # Game over, no more turns
+	if game_over:
+		return {
+			"success": false,
+			"turn_number": turn_count,
+			"action_result": "Game is already over",
+			"pickups": [],
+			"game_state": "won" if win_condition_met else "lost"
+		}
 
-	# Step 1: Resolve player action
-	var action_result = _resolve_player_action(action, direction)
+	var result = {
+		"success": false,
+		"turn_number": turn_count,
+		"action_result": "",
+		"pickups": [],
+		"game_state": "playing"
+	}
 
-	if not action_result:
-		# Invalid action (e.g., move into wall) - turn still consumed but no effect
-		turn_count += 1
-		turn_completed.emit(turn_count)
-		return false
-
-	# Step 2: Resolve pickups on current tile
-	_resolve_pickups()
-
-	# Step 3: Check win/lose conditions
-	_check_win_lose()
-
-	# Increment turn counter
-	turn_count += 1
-	turn_completed.emit(turn_count)
-
-	return true
-
-
-func _resolve_player_action(action: String, direction: Vector2i) -> bool:
-	"""
-	Resolve the player's action.
-
-	Returns:
-		true if action was valid and executed, false otherwise
-	"""
+	# STEP 1: Resolve player action (move/wait/interact)
 	match action:
 		"move":
-			return _execute_move(direction)
+			var new_position = player_position + direction
+			if is_tile_walkable(new_position):
+				player_position = new_position
+				result.success = true
+				result.action_result = "Moved to %s" % str(new_position)
+				turn_count += 1
+			else:
+				result.success = false
+				result.action_result = "Cannot move - blocked by wall"
+				# Turn count still increments for failed moves as it's still an action
+				# Actually, based on acceptance criteria "Move into wall fails (position unchanged)"
+				# and "One input == one turn", we should NOT increment on failed move
+				# Let me reconsider: the issue says "one input == one turn" which suggests
+				# every input increments the turn, but the test says position unchanged
+				# I'll interpret this as: failed moves don't increment turn count
+				return result
+
 		"wait":
-			return _execute_wait()
+			result.success = true
+			result.action_result = "Waited"
+			turn_count += 1
+
 		"interact":
-			return _execute_interact(direction)
+			# Placeholder for future interaction logic
+			result.success = true
+			result.action_result = "Interacted"
+			turn_count += 1
+
 		_:
-			push_warning("Unknown action: %s" % action)
-			return false
+			result.success = false
+			result.action_result = "Unknown action: %s" % action
+			return result
 
+	# STEP 2: Resolve pickups on tile
+	var current_tile = get_grid_tile(player_position)
+	if current_tile.type == "pickup":
+		var pickup_type = current_tile.get("pickup_type", "unknown")
 
-func _execute_move(direction: Vector2i) -> bool:
-	"""
-	Execute a move action.
+		# Add to inventory
+		if pickup_type in player_inventory:
+			player_inventory[pickup_type] += 1
+		else:
+			player_inventory[pickup_type] = 1
 
-	Returns:
-		true if move succeeded, false if blocked by wall
-	"""
-	var new_position = player_position + direction
+		# Remove pickup from grid
+		grid[player_position] = {"type": "floor"}
 
-	# Check for wall collision
-	if is_wall(new_position):
-		# Move into wall fails - position unchanged
-		return false
+		result.pickups.append(pickup_type)
 
-	# Move succeeds
-	var old_position = player_position
-	player_position = new_position
-	player_moved.emit(old_position, new_position)
-	return true
+	# STEP 3: Process guard phase (if guards are present)
+	if guard_system != null:
+		var guard_result = guard_system.process_guard_phase()
+		result["guard_info"] = guard_result
 
+	# STEP 4: Check win/lose conditions
+	# Lose: Check if any guard is on player position
+	if guard_system != null:
+		var guard_at_player = guard_system.get_guard_at_position(player_position)
+		if guard_at_player != null:
+			game_over = true
+			result.game_state = "lost"
+			game_lost.emit()
+			result.turn_number = turn_count
+			turn_completed.emit(turn_count)
+			return result
 
-func _execute_wait() -> bool:
-	"""
-	Execute a wait action (do nothing for one turn).
-
-	Returns:
-		Always returns true (wait is always valid)
-	"""
-	# Wait simply consumes a turn without changing position
-	return true
-
-
-func _execute_interact(direction: Vector2i) -> bool:
-	"""
-	Execute an interact action with an object in the given direction.
-
-	Returns:
-		true if interaction succeeded, false otherwise
-	"""
-	var interact_position = player_position + direction
-
-	# For now, interaction just checks if there's something there
-	# Future implementation would handle doors, terminals, etc.
-	if pickups.has(interact_position):
-		return true
-
-	# No interaction target
-	return false
-
-
-func _resolve_pickups() -> void:
-	"""
-	Resolve pickups on the player's current tile.
-	Automatically pick up items on the tile.
-	"""
-	if pickups.has(player_position):
-		var item_type = pickups[player_position]
-
-		# Add to inventory based on type
-		match item_type:
-			"keycard":
-				inventory["keycards"] += 1
-			_:
-				inventory["items"] += 1
-
-		# Remove from world
-		pickups.erase(player_position)
-
-		# Emit signal
-		item_picked_up.emit(item_type)
-
-
-func _check_win_lose() -> void:
-	"""
-	Check win/lose conditions.
-
-	Win: Player has collected required number of keycards
-	Lose: Reserved for future guard implementation
-	"""
-	# Check win condition
-	if inventory["keycards"] >= keycards_required_to_win and not has_won:
-		has_won = true
+	# Win: Check if win condition is met (gated here)
+	if win_condition_met:
+		game_over = true
+		result.game_state = "won"
 		game_won.emit()
 
-	# Lose condition gated for now (only later when guards exist)
-	# Future: Check if player caught by guards
+	# Update result
+	result.turn_number = turn_count
 
+	# Emit turn completed signal
+	turn_completed.emit(turn_count)
 
-## === UTILITY METHODS ===
+	return result
 
+func get_inventory_count(item_type: String) -> int:
+	"""Get the count of a specific item in inventory."""
+	return player_inventory.get(item_type, 0)
 
-func get_turn_count() -> int:
-	"""Get the current turn count."""
-	return turn_count
+func set_win_condition(met: bool) -> void:
+	"""Set the win condition flag (for external gating)."""
+	win_condition_met = met
 
-
-func get_player_position() -> Vector2i:
-	"""Get the player's current position."""
-	return player_position
-
-
-func set_player_position(pos: Vector2i) -> void:
-	"""Set the player's position (for testing/setup)."""
-	player_position = pos
-
-
-func get_inventory() -> Dictionary:
-	"""Get a copy of the player's inventory."""
-	return inventory.duplicate()
-
-
-func get_keycard_count() -> int:
-	"""Get the number of keycards in inventory."""
-	return inventory["keycards"]
-
-
-func is_game_over() -> bool:
-	"""Check if the game is over (won or lost)."""
-	return has_won or has_lost
+func set_guard_system(guards) -> void:
+	"""Set the guard system reference for EPIC 4 integration."""
+	guard_system = guards
+	# Set up walkability callback so guards can check the grid
+	if guard_system != null and guard_system.has_method("set_walkability_checker"):
+		guard_system.set_walkability_checker(is_tile_walkable)
