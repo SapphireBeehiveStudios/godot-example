@@ -30,6 +30,7 @@ func _init() -> void:
 		"res://tests/test_shard_exit.gd",
 		"res://tests/test_renderer.gd",
 		"res://tests/test_main_menu.gd",
+		"res://tests/test_door_keycard_placement.gd",
 	]
 
 	# Run each test module

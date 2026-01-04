@@ -95,7 +95,8 @@ func get_grid_tile(pos: Vector2i) -> Dictionary:
 func is_tile_walkable(pos: Vector2i) -> bool:
 	"""Check if a tile can be walked on."""
 	var tile = get_grid_tile(pos)
-	return tile.type != "wall"
+	# Walls and closed doors are not walkable
+	return tile.type != "wall" and tile.type != "door"
 
 func set_player_position(pos: Vector2i) -> void:
 	"""Set the player's position directly."""
@@ -112,6 +113,10 @@ func get_turn_count() -> int:
 func add_wall(pos: Vector2i) -> void:
 	"""Add a wall tile at the specified position."""
 	set_grid_tile(pos, "wall")
+
+func add_door(pos: Vector2i) -> void:
+	"""Add a door tile at the specified position (Issue #27)."""
+	set_grid_tile(pos, "door")
 
 func add_pickup(pos: Vector2i, pickup_type: String) -> void:
 	"""Add a pickup at the specified position."""
