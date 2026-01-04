@@ -34,6 +34,15 @@ var run_seed: Variant = 0
 ## Message log for in-run HUD (Issue #36)
 var message_log: MessageLog = MessageLog.new()
 
+## Guards evaded counter (Issue #95)
+var guards_evaded: int = 0
+
+## Whether the player was caught by a guard (Issue #95)
+var caught_by_guard: bool = false
+
+## Real-time timestamp when run started (Issue #95)
+var start_time_msec: int = 0
+
 func _init(seed_value: Variant = 0) -> void:
 	"""Initialize game state with optional seed."""
 	run_seed = seed_value
@@ -48,6 +57,9 @@ func reset(preserve_seed: bool = false) -> void:
 	keycards = 0
 	shard_collected = false
 	score = 0
+	guards_evaded = 0
+	caught_by_guard = false
+	start_time_msec = Time.get_ticks_msec()
 	if not preserve_seed:
 		run_seed = 0
 	message_log.clear()
@@ -92,7 +104,10 @@ func to_dict() -> Dictionary:
 		"shard_collected": shard_collected,
 		"score": score,
 		"run_seed": run_seed,
-		"message_log": message_log.to_dict()
+		"message_log": message_log.to_dict(),
+		"guards_evaded": guards_evaded,
+		"caught_by_guard": caught_by_guard,
+		"start_time_msec": start_time_msec
 	}
 
 func from_dict(data: Dictionary) -> void:
@@ -107,6 +122,9 @@ func from_dict(data: Dictionary) -> void:
 	shard_collected = data.get("shard_collected", false)
 	score = data.get("score", 0)
 	run_seed = data.get("run_seed", 0)
+	guards_evaded = data.get("guards_evaded", 0)
+	caught_by_guard = data.get("caught_by_guard", false)
+	start_time_msec = data.get("start_time_msec", 0)
 	if data.has("message_log"):
 		message_log.from_dict(data.get("message_log"))
 
@@ -145,3 +163,26 @@ func add_message(text: String, type: String = "info") -> void:
 func get_message_log() -> MessageLog:
 	"""Get the message log (Issue #36)."""
 	return message_log
+
+func increment_guards_evaded() -> void:
+	"""Increment the guards evaded counter (Issue #95)."""
+	guards_evaded += 1
+
+func get_guards_evaded() -> int:
+	"""Get the number of guards evaded (Issue #95)."""
+	return guards_evaded
+
+func mark_caught_by_guard() -> void:
+	"""Mark that the player was caught by a guard (Issue #95)."""
+	caught_by_guard = true
+
+func was_caught_by_guard() -> bool:
+	"""Check if the player was caught by a guard (Issue #95)."""
+	return caught_by_guard
+
+func get_play_time_seconds() -> int:
+	"""Get the real-time play duration in seconds (Issue #95)."""
+	if start_time_msec == 0:
+		return 0
+	var current_time = Time.get_ticks_msec()
+	return int((current_time - start_time_msec) / 1000.0)

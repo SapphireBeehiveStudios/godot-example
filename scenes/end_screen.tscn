@@ -77,6 +77,48 @@ theme_override_font_sizes/font_size = 16
 text = "Seed: 0"
 horizontal_alignment = 1
 
+[node name="DetailedStatsLabel" type="Label" parent="CenterContainer/VBoxContainer/StatsContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "─────────────────────"
+horizontal_alignment = 1
+
+[node name="TurnsLabel" type="Label" parent="CenterContainer/VBoxContainer/StatsContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Total Turns: 0"
+horizontal_alignment = 1
+
+[node name="FloorsLabel" type="Label" parent="CenterContainer/VBoxContainer/StatsContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Floors Completed: 0"
+horizontal_alignment = 1
+
+[node name="KeycardsLabel" type="Label" parent="CenterContainer/VBoxContainer/StatsContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Keycards Collected: 0"
+horizontal_alignment = 1
+
+[node name="GuardsLabel" type="Label" parent="CenterContainer/VBoxContainer/StatsContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Guards Evaded: 0"
+horizontal_alignment = 1
+
+[node name="PlayTimeLabel" type="Label" parent="CenterContainer/VBoxContainer/StatsContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Time Played: 0s"
+horizontal_alignment = 1
+
 [node name="Spacer2" type="Control" parent="CenterContainer/VBoxContainer"]
 custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
