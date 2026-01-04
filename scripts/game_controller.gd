@@ -16,6 +16,7 @@ const DungeonGenerator = preload("res://scripts/dungeon_generator.gd")
 const Renderer = preload("res://scripts/renderer.gd")
 const MessageLog = preload("res://scripts/message_log.gd")
 const RunProgressionManager = preload("res://scripts/run_progression_manager.gd")
+const AudioManager = preload("res://scripts/audio_manager.gd")
 
 ## Game systems
 var turn_system: TurnSystem = null
@@ -23,6 +24,7 @@ var guard_system: GuardSystem = null
 var renderer: Renderer = null
 var message_log: MessageLog = null
 var progression_manager: RunProgressionManager = null
+var audio_manager: AudioManager = null
 
 ## HUD reference
 @onready var hud = $HUD
@@ -44,6 +46,10 @@ func _ready() -> void:
 	# Get menu reference
 	menu = get_node("../MainMenu")
 
+	# Initialize audio manager
+	audio_manager = AudioManager.new()
+	add_child(audio_manager)
+
 	# Hide HUD initially
 	if hud:
 		hud.visible = false
@@ -63,6 +69,18 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("help"):
 		if help_overlay:
 			help_overlay.toggle_visibility()
+		get_viewport().set_input_as_handled()
+		return
+
+	# Sound toggle can be triggered anytime (Issue #89)
+	if event.is_action_pressed("toggle_sound"):
+		if audio_manager:
+			audio_manager.toggle_sounds()
+			var status = "ON" if audio_manager.is_sounds_enabled() else "OFF"
+			if message_log:
+				message_log.add_message("Sound effects: %s" % status, "info")
+			if hud:
+				hud.update_message_log()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -198,8 +216,32 @@ func process_player_action(action: String, direction: Vector2i) -> void:
 	if turn_system.is_game_over():
 		return
 
+	# Track previous state for sound effects
+	var had_shard_before = turn_system.is_shard_collected()
+	var keycard_count_before = turn_system.get_keycard_count()
+	var player_pos_before = turn_system.get_player_position()
+
 	# Execute the turn
-	turn_system.execute_turn(action, direction)
+	var action_succeeded = turn_system.execute_turn(action, direction)
+
+	# Play appropriate sound effects (Issue #89)
+	if audio_manager:
+		match action:
+			"move":
+				if action_succeeded:
+					# Player moved successfully
+					audio_manager.play_movement()
+					# Check for pickups
+					if turn_system.is_shard_collected() and not had_shard_before:
+						audio_manager.play_pickup()
+					elif turn_system.get_keycard_count() > keycard_count_before:
+						audio_manager.play_pickup()
+			"interact":
+				if action_succeeded:
+					# Door was opened
+					audio_manager.play_door()
+			"wait":
+				# No sound for waiting
 
 	# Update display
 	update_hud()
@@ -247,6 +289,10 @@ func _on_floor_complete() -> void:
 	"""Called when the floor is completed (shard collected, exit reached)."""
 	var result = progression_manager.complete_floor()
 
+	# Play win sound (Issue #89)
+	if audio_manager:
+		audio_manager.play_win()
+
 	if result == "won":
 		# Run complete!
 		message_log.add_message("RUN COMPLETE! You escaped with the data!", "success")
@@ -261,6 +307,10 @@ func _on_floor_complete() -> void:
 
 func _on_game_lost() -> void:
 	"""Called when the game is lost (caught by guard)."""
+	# Play capture sound (Issue #89)
+	if audio_manager:
+		audio_manager.play_capture()
+
 	# Flash screen red (Issue #90)
 	if hud and hud.has_method("flash_red"):
 		hud.flash_red()
