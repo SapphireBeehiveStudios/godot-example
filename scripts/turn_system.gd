@@ -44,12 +44,19 @@ var game_over: bool = false
 ## Guard system reference (optional, for EPIC 4 integration)
 var guard_system = null
 
+## Number of keycards required to win (can be set externally)
+var keycards_required_to_win: int = 1
+
 func _init(seed_value: int = 0) -> void:
 	"""Initialize the turn system with optional seed for deterministic behavior."""
 	if seed_value != 0:
 		rng.seed = seed_value
 	else:
 		rng.randomize()
+
+func setup(seed_value: int = 0) -> void:
+	"""Setup/reset the game state with a seed. Alias for reset()."""
+	reset(seed_value)
 
 func reset(seed_value: int = 0) -> void:
 	"""Reset the game state."""
@@ -81,6 +88,129 @@ func is_tile_walkable(pos: Vector2i) -> bool:
 	"""Check if a tile can be walked on."""
 	var tile = get_grid_tile(pos)
 	return tile.type != "wall"
+
+func set_player_position(pos: Vector2i) -> void:
+	"""Set the player's position directly."""
+	player_position = pos
+
+func get_player_position() -> Vector2i:
+	"""Get the player's current position."""
+	return player_position
+
+func get_turn_count() -> int:
+	"""Get the current turn count."""
+	return turn_count
+
+func add_wall(pos: Vector2i) -> void:
+	"""Add a wall tile at the specified position."""
+	set_grid_tile(pos, "wall")
+
+func add_pickup(pos: Vector2i, pickup_type: String) -> void:
+	"""Add a pickup at the specified position."""
+	set_grid_tile(pos, "pickup", {"pickup_type": pickup_type})
+
+func get_pickup(pos: Vector2i) -> String:
+	"""Get the pickup type at a position, or empty string if none."""
+	var tile = get_grid_tile(pos)
+	if tile.type == "pickup":
+		return tile.get("pickup_type", "")
+	return ""
+
+func get_keycard_count() -> int:
+	"""Get the number of keycards in inventory."""
+	return player_inventory.get("keycard", 0)
+
+func is_game_over() -> bool:
+	"""Check if the game is over (won or lost)."""
+	return game_over
+
+func execute_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> bool:
+	"""
+	Execute one complete turn with strict ordering.
+
+	Args:
+		action: "move", "wait", or "interact"
+		direction: Direction vector for movement (only used if action is "move")
+
+	Returns:
+		bool: true if action succeeded, false otherwise
+
+	Strict turn order:
+	1. Resolve player action (move/wait/interact)
+	2. Resolve pickups on tile
+	3. Process guard phase (guards move)
+	4. Check win/lose conditions
+	"""
+	if game_over:
+		return false
+
+	var action_succeeded = false
+
+	# STEP 1: Resolve player action (move/wait/interact)
+	match action:
+		"move":
+			var new_position = player_position + direction
+			if is_tile_walkable(new_position):
+				player_position = new_position
+				action_succeeded = true
+			else:
+				# Move into wall fails - but still consumes a turn
+				action_succeeded = false
+			# Turn count increments regardless of success/failure for moves
+			turn_count += 1
+
+		"wait":
+			action_succeeded = true
+			turn_count += 1
+
+		"interact":
+			# Placeholder for future interaction logic
+			action_succeeded = true
+			turn_count += 1
+
+		_:
+			# Invalid action still consumes a turn
+			action_succeeded = false
+			turn_count += 1
+
+	# STEP 2: Resolve pickups on tile
+	var current_tile = get_grid_tile(player_position)
+	if current_tile.type == "pickup":
+		var pickup_type = current_tile.get("pickup_type", "unknown")
+
+		# Add to inventory
+		if pickup_type in player_inventory:
+			player_inventory[pickup_type] += 1
+		else:
+			player_inventory[pickup_type] = 1
+
+		# Remove pickup from grid (convert to floor)
+		grid[player_position] = {"type": "floor"}
+
+	# STEP 3: Process guard phase (if guards are present)
+	if guard_system != null:
+		guard_system.process_guard_phase()
+
+	# STEP 4: Check win/lose conditions
+	# Lose: Check if any guard is on player position
+	if guard_system != null:
+		var guard_at_player = guard_system.get_guard_at_position(player_position)
+		if guard_at_player != null:
+			game_over = true
+			game_lost.emit()
+			turn_completed.emit(turn_count)
+			return action_succeeded
+
+	# Win: Check if enough keycards collected
+	if get_keycard_count() >= keycards_required_to_win:
+		game_over = true
+		win_condition_met = true
+		game_won.emit()
+
+	# Emit turn completed signal
+	turn_completed.emit(turn_count)
+
+	return action_succeeded
 
 func process_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> Dictionary:
 	"""
