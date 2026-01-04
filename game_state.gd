@@ -32,14 +32,18 @@ func _init(seed_value: Variant = 0) -> void:
 	"""Initialize game state with optional seed."""
 	run_seed = seed_value
 
-func reset() -> void:
-	"""Reset all state to defaults."""
+func reset(preserve_seed: bool = false) -> void:
+	"""Reset all state to defaults.
+	Args:
+		preserve_seed: If true, keep the current run_seed value
+	"""
 	floor_number = 0
 	turn_count = 0
 	keycards = 0
 	shard_collected = false
 	score = 0
-	run_seed = 0
+	if not preserve_seed:
+		run_seed = 0
 
 func add_keycard(amount: int = 1) -> void:
 	"""Add keycards to inventory."""
@@ -111,3 +115,7 @@ func get_score() -> int:
 func get_run_seed() -> Variant:
 	"""Get the run seed."""
 	return run_seed
+
+func set_run_seed(seed_value: Variant) -> void:
+	"""Set the run seed for this game state."""
+	run_seed = seed_value
