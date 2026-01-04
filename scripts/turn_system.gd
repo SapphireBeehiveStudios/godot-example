@@ -22,6 +22,9 @@ signal game_lost
 ## Emitted when a message should be logged (Issue #36)
 signal message_generated(text: String, type: String)
 
+## Emitted when a trap is triggered (Issue #94)
+signal trap_triggered(trap_pos: Vector2i)
+
 ## Current turn number (increments with each action, including wait)
 var turn_count: int = 0
 
@@ -99,6 +102,7 @@ func is_tile_walkable(pos: Vector2i) -> bool:
 	"""Check if a tile can be walked on."""
 	var tile = get_grid_tile(pos)
 	# Walls and closed doors block movement
+	# Traps are walkable (they trigger when stepped on)
 	return tile.type != "wall" and tile.type != "door_closed"
 
 func set_player_position(pos: Vector2i) -> void:
@@ -132,6 +136,10 @@ func add_door(pos: Vector2i, is_open: bool = false) -> void:
 	"""Add a door at the specified position."""
 	var door_type = "door_open" if is_open else "door_closed"
 	set_grid_tile(pos, door_type)
+
+func add_trap(pos: Vector2i) -> void:
+	"""Add a trap at the specified position (Issue #94)."""
+	set_grid_tile(pos, "trap", {"active": true})
 
 func is_door(pos: Vector2i) -> bool:
 	"""Check if a position has a door (open or closed)."""
@@ -243,6 +251,16 @@ func execute_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> bool:
 			player_inventory[pickup_type] = 1
 
 		# Remove pickup from grid (convert to floor)
+		grid[player_position] = {"type": "floor"}
+
+	# Handle trap triggering (Issue #94)
+	if current_tile.type == "trap" and current_tile.get("active", false):
+		message_generated.emit("Trap triggered! Guards alerted!", "trap")
+		trap_triggered.emit(player_position)
+		# Alert guards within 5 tiles
+		if guard_system != null:
+			guard_system.alert_guards_in_radius(player_position, 5)
+		# Disarm trap (one-time use)
 		grid[player_position] = {"type": "floor"}
 
 	# Handle exit interaction (Issue #22)
@@ -394,6 +412,16 @@ func process_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> Dictio
 		grid[player_position] = {"type": "floor"}
 
 		result.pickups.append(pickup_type)
+
+	# Handle trap triggering (Issue #94)
+	if current_tile.type == "trap" and current_tile.get("active", false):
+		message_generated.emit("Trap triggered! Guards alerted!", "trap")
+		trap_triggered.emit(player_position)
+		# Alert guards within 5 tiles
+		if guard_system != null:
+			guard_system.alert_guards_in_radius(player_position, 5)
+		# Disarm trap (one-time use)
+		grid[player_position] = {"type": "floor"}
 
 	# Handle exit interaction (Issue #22)
 	if current_tile.type == "exit":

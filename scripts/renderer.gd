@@ -11,6 +11,7 @@ extends RefCounted
 ##   k = Keycard
 ##   $ = Shard
 ##   > = Exit
+##   ^ = Trap
 ##
 ## Output is BBCode-formatted for use with RichTextLabel.
 ## Rendering is deterministic for snapshot testing.
@@ -25,6 +26,7 @@ const COLOR_DOOR_CLOSED := "yellow"
 const COLOR_KEYCARD := "blue"
 const COLOR_SHARD := "gold"
 const COLOR_EXIT := "lime"
+const COLOR_TRAP := "orange"
 
 ## Render the grid with all entities to a BBCode string
 ##
@@ -134,6 +136,8 @@ func _get_character_at_position(pos: Vector2i, player_pos: Vector2i, guard_set: 
 					return _colorize(".", COLOR_FLOOR)
 			"exit":
 				return _colorize(">", COLOR_EXIT)
+			"trap":
+				return _colorize("^", COLOR_TRAP)
 			_:
 				# Unknown type, render as floor
 				return _colorize(".", COLOR_FLOOR)
