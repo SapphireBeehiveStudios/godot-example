@@ -20,6 +20,8 @@ func run_all() -> Dictionary:
 	test_print_functions_dont_crash()
 	test_title_has_border_characters()
 	test_title_multiline()
+	test_title_lines_consistent_length()
+	test_title_content_consistent_spacing()
 	return {"passed": tests_passed, "failed": tests_failed}
 
 ## Assertion helper methods
@@ -129,3 +131,37 @@ func test_title_multiline() -> void:
 	var title = load("res://ascii_title.gd").get_title()
 	var lines = title.split("\n")
 	assert_true(lines.size() > 1, "Title contains multiple lines")
+
+func test_title_lines_consistent_length() -> void:
+	"""Test that all non-empty lines have consistent length."""
+	var title = load("res://ascii_title.gd").get_title()
+	var lines = title.split("\n")
+	var expected_length = -1
+
+	for line in lines:
+		if line.strip_edges().length() > 0:  # Skip empty lines
+			if expected_length == -1:
+				expected_length = line.length()
+			else:
+				assert_eq(line.length(), expected_length, "Line length is consistent (%d chars)" % expected_length)
+
+	assert_true(expected_length > 0, "Found non-empty lines to test")
+
+func test_title_content_consistent_spacing() -> void:
+	"""Test that all content lines have consistent spacing between borders."""
+	var title = load("res://ascii_title.gd").get_title()
+	var lines = title.split("\n")
+	var expected_content_length = -1
+
+	for line in lines:
+		if line.contains("║"):  # Lines with border characters
+			var first_border = line.find("║")
+			var last_border = line.rfind("║")
+			if first_border != last_border:  # Has both left and right borders
+				var content_length = last_border - first_border - 1
+				if expected_content_length == -1:
+					expected_content_length = content_length
+				else:
+					assert_eq(content_length, expected_content_length, "Content between borders is consistent (%d chars)" % expected_content_length)
+
+	assert_true(expected_content_length > 0, "Found bordered lines to test")
