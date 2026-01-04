@@ -27,6 +27,13 @@ func run_all() -> Dictionary:
 	test_win_condition()
 	test_multiple_keycards()
 	test_invalid_action()
+	test_door_blocks_movement()
+	test_cannot_open_door_without_keycard()
+	test_can_open_door_with_keycard()
+	test_keycard_consumed_when_opening_door()
+	test_opened_door_becomes_walkable()
+	test_interact_requires_direction()
+	test_interact_fails_with_no_door()
 	return {"passed": tests_passed, "failed": tests_failed}
 
 
@@ -269,5 +276,199 @@ func test_invalid_action() -> void:
 
 	# Turn should still increment
 	assert_eq(turn_system.get_turn_count(), initial_turn + 1, "Invalid action should consume turn")
+
+	turn_system.free()
+
+
+## Door Interaction Tests (Issue #21)
+
+
+func test_door_blocks_movement() -> void:
+	"""Test that closed doors block movement."""
+	var turn_system = TurnSystem.new()
+	turn_system.setup(12345)
+
+	# Place player at origin
+	turn_system.set_player_position(Vector2i(0, 0))
+
+	# Place closed door to the right
+	turn_system.add_door(Vector2i(1, 0), false)
+
+	# Try to move through the closed door
+	var initial_pos = turn_system.get_player_position()
+	var result = turn_system.execute_turn("move", Vector2i(1, 0))
+	var final_pos = turn_system.get_player_position()
+
+	assert_false(result, "Move through closed door should fail")
+	assert_eq(final_pos, initial_pos, "Position should remain unchanged when moving into closed door")
+	assert_true(turn_system.is_door_closed(Vector2i(1, 0)), "Door should still be closed")
+
+	turn_system.free()
+
+
+func test_cannot_open_door_without_keycard() -> void:
+	"""Test that doors cannot be opened without a keycard."""
+	var turn_system = TurnSystem.new()
+	turn_system.setup(12345)
+
+	# Place player at origin
+	turn_system.set_player_position(Vector2i(0, 0))
+
+	# Place closed door to the right
+	turn_system.add_door(Vector2i(1, 0), false)
+
+	# Verify no keycards in inventory
+	assert_eq(turn_system.get_keycard_count(), 0, "Should start with no keycards")
+
+	# Try to interact with door (without keycard)
+	var result = turn_system.execute_turn("interact", Vector2i(1, 0))
+
+	assert_false(result, "Interaction should fail without keycard")
+	assert_true(turn_system.is_door_closed(Vector2i(1, 0)), "Door should remain closed")
+
+	turn_system.free()
+
+
+func test_can_open_door_with_keycard() -> void:
+	"""Test that doors can be opened when player has a keycard."""
+	var turn_system = TurnSystem.new()
+	turn_system.setup(12345)
+
+	# Set win requirement high so game doesn't end
+	turn_system.keycards_required_to_win = 10
+
+	# Place player at origin
+	turn_system.set_player_position(Vector2i(0, 0))
+
+	# Give player a keycard
+	turn_system.add_pickup(Vector2i(0, 0), "keycard")
+	turn_system.execute_turn("wait")  # Pick up keycard
+	assert_eq(turn_system.get_keycard_count(), 1, "Should have 1 keycard")
+
+	# Place closed door to the right
+	turn_system.add_door(Vector2i(1, 0), false)
+
+	# Interact with door (with keycard)
+	var result = turn_system.execute_turn("interact", Vector2i(1, 0))
+
+	assert_true(result, "Interaction should succeed with keycard")
+	assert_false(turn_system.is_door_closed(Vector2i(1, 0)), "Door should be open")
+
+	turn_system.free()
+
+
+func test_keycard_consumed_when_opening_door() -> void:
+	"""Test that opening a door consumes one keycard from inventory."""
+	var turn_system = TurnSystem.new()
+	turn_system.setup(12345)
+
+	# Set win requirement high so game doesn't end
+	turn_system.keycards_required_to_win = 10
+
+	# Place player at origin
+	turn_system.set_player_position(Vector2i(0, 0))
+
+	# Give player 2 keycards
+	turn_system.add_pickup(Vector2i(0, 0), "keycard")
+	turn_system.execute_turn("wait")
+	turn_system.add_pickup(Vector2i(0, 0), "keycard")
+	turn_system.execute_turn("wait")
+	assert_eq(turn_system.get_keycard_count(), 2, "Should have 2 keycards")
+
+	# Place closed door to the right
+	turn_system.add_door(Vector2i(1, 0), false)
+
+	# Open door
+	turn_system.execute_turn("interact", Vector2i(1, 0))
+
+	assert_eq(turn_system.get_keycard_count(), 1, "Should have 1 keycard left after opening door")
+	assert_false(turn_system.is_door_closed(Vector2i(1, 0)), "Door should be open")
+
+	turn_system.free()
+
+
+func test_opened_door_becomes_walkable() -> void:
+	"""Test that opened doors become walkable."""
+	var turn_system = TurnSystem.new()
+	turn_system.setup(12345)
+
+	# Set win requirement high so game doesn't end
+	turn_system.keycards_required_to_win = 10
+
+	# Place player at origin
+	turn_system.set_player_position(Vector2i(0, 0))
+
+	# Give player a keycard
+	turn_system.add_pickup(Vector2i(0, 0), "keycard")
+	turn_system.execute_turn("wait")
+
+	# Place closed door to the right
+	turn_system.add_door(Vector2i(1, 0), false)
+
+	# Verify door blocks movement initially
+	assert_false(turn_system.is_tile_walkable(Vector2i(1, 0)), "Closed door should not be walkable")
+
+	# Open the door
+	turn_system.execute_turn("interact", Vector2i(1, 0))
+
+	# Now door should be walkable
+	assert_true(turn_system.is_tile_walkable(Vector2i(1, 0)), "Open door should be walkable")
+
+	# Move through the opened door
+	var result = turn_system.execute_turn("move", Vector2i(1, 0))
+	assert_true(result, "Should be able to move through open door")
+	assert_eq(turn_system.get_player_position(), Vector2i(1, 0), "Player should be on door tile")
+
+	turn_system.free()
+
+
+func test_interact_requires_direction() -> void:
+	"""Test that interact action checks the tile in the specified direction."""
+	var turn_system = TurnSystem.new()
+	turn_system.setup(12345)
+
+	# Set win requirement high so game doesn't end
+	turn_system.keycards_required_to_win = 10
+
+	# Place player at origin
+	turn_system.set_player_position(Vector2i(0, 0))
+
+	# Give player a keycard
+	turn_system.add_pickup(Vector2i(0, 0), "keycard")
+	turn_system.execute_turn("wait")
+
+	# Place doors in different directions
+	turn_system.add_door(Vector2i(1, 0), false)   # Right
+	turn_system.add_door(Vector2i(0, 1), false)   # Down
+
+	# Interact to the right
+	var result = turn_system.execute_turn("interact", Vector2i(1, 0))
+	assert_true(result, "Should open door to the right")
+	assert_false(turn_system.is_door_closed(Vector2i(1, 0)), "Right door should be open")
+	assert_true(turn_system.is_door_closed(Vector2i(0, 1)), "Down door should still be closed")
+
+	turn_system.free()
+
+
+func test_interact_fails_with_no_door() -> void:
+	"""Test that interact action fails when there's no door at target position."""
+	var turn_system = TurnSystem.new()
+	turn_system.setup(12345)
+
+	# Set win requirement high so game doesn't end
+	turn_system.keycards_required_to_win = 10
+
+	# Place player at origin
+	turn_system.set_player_position(Vector2i(0, 0))
+
+	# Give player a keycard
+	turn_system.add_pickup(Vector2i(0, 0), "keycard")
+	turn_system.execute_turn("wait")
+
+	# Try to interact with empty space (no door)
+	var result = turn_system.execute_turn("interact", Vector2i(1, 0))
+
+	assert_false(result, "Interaction should fail when there's no door")
+	assert_eq(turn_system.get_keycard_count(), 1, "Keycard should not be consumed")
 
 	turn_system.free()
