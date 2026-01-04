@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="GameConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/game_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+grid_width = 20
+grid_height = 12
+floor_count = 3
+guard_max_chase_turns = 5
+guard_los_range = 8
+guards_per_floor_base = 2
+keycards_required_to_win = 1
+shard_score_bonus = 500
+floor_completion_bonus = 100
+turn_penalty = 1
+color_player = "aqua"
+color_guard = "red"
+color_wall = "gray"
+color_floor = "white"
+color_door_open = "green"
+color_door_closed = "yellow"
+color_keycard = "blue"
+color_shard = "gold"
+color_exit = "lime"
