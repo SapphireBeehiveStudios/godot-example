@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://bkx7j8q2v3y2w"]
+[gd_scene load_steps=5 format=3 uid="uid://bkx7j8q2v3y2w"]
 
 [ext_resource type="PackedScene" uid="uid://c3r5qm5jxqxqt" path="res://scenes/main_menu.tscn" id="1"]
 [ext_resource type="Script" path="res://scripts/game_controller.gd" id="2"]
 [ext_resource type="PackedScene" uid="uid://cpskqg1k8m2i8" path="res://scenes/hud.tscn" id="3"]
+[ext_resource type="PackedScene" uid="uid://bw8x3y9k2v1z3" path="res://scenes/help_overlay.tscn" id="4"]
 
 [node name="Main" type="Node"]
 
@@ -12,5 +13,7 @@
 script = ExtResource("2")
 
 [node name="HUD" parent="GameController" instance=ExtResource("3")]
+
+[node name="HelpOverlay" parent="GameController" instance=ExtResource("4")]
 
 [connection signal="start_run_requested" from="MainMenu" to="GameController" method="_on_start_run_requested"]
