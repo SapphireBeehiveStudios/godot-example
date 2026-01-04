@@ -24,6 +24,7 @@ func _init() -> void:
 		"res://tests/test_guard_system.gd",
 		"res://tests/test_game_manager.gd",
 		"res://tests/test_deterministic_rng.gd",
+		"res://tests/test_shard_exit.gd",
 	]
 
 	# Run each test module
