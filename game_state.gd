@@ -69,6 +69,13 @@ func advance_floor() -> void:
 	"""Advance to the next floor."""
 	floor_number += 1
 
+func reset_floor() -> void:
+	"""Reset floor-specific state while preserving run-wide state (score, run_seed)."""
+	shard_collected = false
+	# Note: keycards are preserved across floors
+	# Note: turn_count continues across the entire run
+	# Note: score and run_seed are preserved
+
 func add_score(points: int) -> void:
 	"""Add points to the score."""
 	score += points
