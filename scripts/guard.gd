@@ -40,10 +40,22 @@ var grid_height: int = 20
 ## Obstacles on the grid (for LoS and pathfinding)
 var obstacles: Dictionary = {}  # Vector2i -> bool
 
+## Initialize the guard
+##
+## Called when the guard enters the scene tree.
 func _ready() -> void:
 	pass
 
 ## Check if guard has line of sight to player
+##
+## Uses Bresenham's line algorithm to check for obstacles between
+## the guard and player positions. Line of sight is blocked by obstacles.
+##
+## Parameters:
+##   player_pos: The player's current grid position
+##
+## Returns:
+##   bool: true if guard can see the player, false otherwise
 func has_line_of_sight(player_pos: Vector2i) -> bool:
 	var distance = grid_position.distance_to(player_pos)
 
@@ -63,6 +75,16 @@ func has_line_of_sight(player_pos: Vector2i) -> bool:
 	return true
 
 ## Get all cells along a line using Bresenham's algorithm
+##
+## Implements Bresenham's line algorithm to get all grid cells
+## between two positions, inclusive of start and end points.
+##
+## Parameters:
+##   from: Starting grid position
+##   to: Ending grid position
+##
+## Returns:
+##   Array[Vector2i]: All cells along the line from start to end
 func get_line_cells(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
 	var x0 = from.x
@@ -93,6 +115,12 @@ func get_line_cells(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 	return cells
 
 ## Update guard AI (call once per turn)
+##
+## Checks line of sight and manages state transitions between
+## patrol and chase modes. Handles chase timer countdown.
+##
+## Parameters:
+##   player_pos: The player's current grid position
 func update_ai(player_pos: Vector2i) -> void:
 	player_position = player_pos
 
@@ -113,18 +141,31 @@ func update_ai(player_pos: Vector2i) -> void:
 				exit_chase_state()
 
 ## Enter chase state
+##
+## Transitions guard to chase mode and resets the chase timer.
+## Emits a message that the guard spotted the player.
 func enter_chase_state() -> void:
 	current_state = State.CHASE
 	chase_turns_remaining = max_chase_turns
 	message_generated.emit("Guard spotted you!", "guard")
 
 ## Exit chase state
+##
+## Transitions guard back to patrol mode and clears the chase timer.
+## Emits a message that the guard lost sight of the player.
 func exit_chase_state() -> void:
 	current_state = State.PATROL
 	chase_turns_remaining = 0
 	message_generated.emit("Guard lost sight of you.", "info")
 
 ## Get next move using BFS pathfinding
+##
+## Calculates the next grid position the guard should move to.
+## In patrol mode, returns current position (no movement).
+## In chase mode, uses BFS to find the shortest path to the player.
+##
+## Returns:
+##   Vector2i: The next grid position to move to
 func get_next_move() -> Vector2i:
 	if current_state != State.CHASE:
 		return grid_position  # No movement in patrol state for now
@@ -140,6 +181,16 @@ func get_next_move() -> Vector2i:
 		return grid_position
 
 ## BFS pathfinding to find shortest path
+##
+## Implements breadth-first search to find the shortest unobstructed
+## path between two grid positions. Considers obstacles and grid bounds.
+##
+## Parameters:
+##   from: Starting grid position
+##   to: Target grid position
+##
+## Returns:
+##   Array[Vector2i]: Path from start to end, or [from] if no path exists
 func bfs_pathfind(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 	var queue: Array = [from]
 	var visited: Dictionary = {from: true}
@@ -185,6 +236,17 @@ func bfs_pathfind(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 	return [from]
 
 ## Reconstruct path from BFS parent dictionary
+##
+## Backtracks through the parent dictionary created by BFS to
+## reconstruct the complete path from start to end.
+##
+## Parameters:
+##   parent: Dictionary mapping each cell to its parent in the path
+##   from: Starting grid position
+##   to: Ending grid position
+##
+## Returns:
+##   Array[Vector2i]: Complete path from start to end
 func reconstruct_path(parent: Dictionary, from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 	var path: Array[Vector2i] = [to]
 	var current = to
@@ -196,6 +258,13 @@ func reconstruct_path(parent: Dictionary, from: Vector2i, to: Vector2i) -> Array
 	return path
 
 ## Set obstacle at grid position
+##
+## Marks a grid position as blocked or unblocked for pathfinding
+## and line of sight calculations.
+##
+## Parameters:
+##   pos: Grid position to modify
+##   is_obstacle: true to mark as obstacle, false to clear
 func set_obstacle(pos: Vector2i, is_obstacle: bool) -> void:
 	if is_obstacle:
 		obstacles[pos] = true
@@ -203,17 +272,28 @@ func set_obstacle(pos: Vector2i, is_obstacle: bool) -> void:
 		obstacles.erase(pos)
 
 ## Clear all obstacles
+##
+## Removes all obstacle data from the grid.
 func clear_obstacles() -> void:
 	obstacles.clear()
 
 ## Get current state
+##
+## Returns:
+##   State: Current AI state (PATROL or CHASE)
 func get_state() -> State:
 	return current_state
 
 ## Check if currently chasing
+##
+## Returns:
+##   bool: true if in CHASE state, false otherwise
 func is_chasing() -> bool:
 	return current_state == State.CHASE
 
 ## Get chase turns remaining
+##
+## Returns:
+##   int: Number of turns left in chase mode before reverting to patrol
 func get_chase_turns_remaining() -> int:
 	return chase_turns_remaining

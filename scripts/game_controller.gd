@@ -36,8 +36,11 @@ var current_seed: int = 0
 ## Game state tracking
 var game_active: bool = false
 
+## Initialize the game controller
+##
+## Sets up references to menu and HUD nodes. Hides the HUD initially
+## until a game is started.
 func _ready() -> void:
-	"""Initialize the game controller."""
 	# Get menu reference
 	menu = get_node("../MainMenu")
 
@@ -45,8 +48,13 @@ func _ready() -> void:
 	if hud:
 		hud.visible = false
 
+## Called when the player starts a run from the menu
+##
+## Hides the menu and starts the game with the provided seed value.
+##
+## Parameters:
+##   seed_value: The seed value (int or String) for the game run
 func _on_start_run_requested(seed_value: Variant) -> void:
-	"""Called when the player starts a run from the menu."""
 	# Hide menu
 	if menu:
 		menu.visible = false
@@ -54,8 +62,14 @@ func _on_start_run_requested(seed_value: Variant) -> void:
 	# Start the game
 	start_game(seed_value)
 
+## Handle game input
+##
+## Processes player input for movement, waiting, interaction, and reset.
+## Only active when a game is in progress.
+##
+## Parameters:
+##   event: The input event to process
 func _input(event: InputEvent) -> void:
-	"""Handle game input."""
 	if not game_active:
 		return
 
@@ -96,8 +110,14 @@ func _input(event: InputEvent) -> void:
 		process_player_action(action, direction)
 		get_viewport().set_input_as_handled()
 
+## Start a new game with the given seed
+##
+## Initializes all game systems (renderer, message log, progression manager)
+## and starts the first floor. Shows the HUD.
+##
+## Parameters:
+##   seed_value: The seed value (int or String) to use for the run
 func start_game(seed_value: Variant) -> void:
-	"""Start a new game with the given seed."""
 	# Convert seed to int
 	if seed_value is String:
 		current_seed = hash(seed_value)
@@ -121,8 +141,12 @@ func start_game(seed_value: Variant) -> void:
 
 	game_active = true
 
+## Start or restart the current floor
+##
+## Creates a new turn system and guard system, generates the dungeon,
+## places entities, and updates the HUD. Uses current progression manager
+## to determine floor number and difficulty parameters.
 func start_floor() -> void:
-	"""Start/restart the current floor."""
 	var floor_num = progression_manager.get_current_floor()
 	print("Starting floor %d" % floor_num)
 
@@ -174,13 +198,23 @@ func start_floor() -> void:
 	if hud:
 		hud.update_message_log()
 
+## Restart the current floor
+##
+## Resets the current floor without changing progression. Useful for
+## when the player presses the reset key.
 func restart_floor() -> void:
-	"""Restart the current floor."""
 	message_log.add_message("Restarting floor...", "info")
 	start_floor()
 
+## Process a player action and update the game state
+##
+## Executes the player's turn through the turn system and updates
+## the HUD to reflect the new game state.
+##
+## Parameters:
+##   action: The action to perform ("move", "wait", or "interact")
+##   direction: Direction vector for movement or interaction
 func process_player_action(action: String, direction: Vector2i) -> void:
-	"""Process a player action and update the game state."""
 	if turn_system.is_game_over():
 		return
 
@@ -190,8 +224,11 @@ func process_player_action(action: String, direction: Vector2i) -> void:
 	# Update display
 	update_hud()
 
+## Update the HUD with current game state
+##
+## Refreshes the HUD display with current stats (floor, turns, items)
+## and renders the game grid with player and guard positions.
 func update_hud() -> void:
-	"""Update the HUD with current game state."""
 	if not hud:
 		return
 
@@ -214,8 +251,14 @@ func update_hud() -> void:
 
 	hud.update_grid_display(grid_bbcode)
 
+## Get a dictionary representing the current game state for the HUD
+##
+## Returns a dictionary of callable functions that the HUD can use
+## to query current game state without direct coupling.
+##
+## Returns:
+##   Dictionary: Game state accessor functions
 func get_game_state_dict() -> Dictionary:
-	"""Get a dictionary representing the current game state for the HUD."""
 	return {
 		"get_floor_number": func(): return progression_manager.get_current_floor() - 1,
 		"get_turn_count": func(): return turn_system.get_turn_count(),
@@ -224,13 +267,21 @@ func get_game_state_dict() -> Dictionary:
 		"get_score": func(): return 0  # TODO: Implement scoring
 	}
 
+## Called when a turn completes
+##
+## Updates the message log turn counter and refreshes the HUD.
+##
+## Parameters:
+##   turn_number: The current turn number
 func _on_turn_completed(turn_number: int) -> void:
-	"""Called when a turn completes."""
 	message_log.current_turn = turn_number
 	update_hud()
 
+## Called when the floor is completed (shard collected, exit reached)
+##
+## Advances floor progression or completes the run. Displays appropriate
+## messages and either starts next floor or ends the game.
 func _on_floor_complete() -> void:
-	"""Called when the floor is completed (shard collected, exit reached)."""
 	var result = progression_manager.complete_floor()
 
 	if result == "won":
@@ -245,14 +296,23 @@ func _on_floor_complete() -> void:
 		await get_tree().create_timer(2.0).timeout
 		start_floor()
 
+## Called when the game is lost (caught by guard)
+##
+## Displays failure message and deactivates the game. Player can
+## press R to restart the floor.
 func _on_game_lost() -> void:
-	"""Called when the game is lost (caught by guard)."""
 	message_log.add_message("MISSION FAILED - Press R to restart", "failure")
 	game_active = false
 	# TODO: Show game over screen with restart option
 
+## Called when the game generates a message
+##
+## Adds the message to the message log and updates the HUD display.
+##
+## Parameters:
+##   text: The message text to display
+##   type: The message type (for formatting/color)
 func _on_message_generated(text: String, type: String) -> void:
-	"""Called when the game generates a message."""
 	message_log.add_message(text, type)
 	if hud:
 		hud.update_message_log()
