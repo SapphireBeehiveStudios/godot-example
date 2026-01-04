@@ -6,9 +6,12 @@ extends RefCounted
 ## - Collectibles (keycards, shard)
 ## - Scoring (score)
 ## - Determinism (run_seed)
+## - Message log (Issue #36)
 ##
 ## This class is designed to be serializable for save/load functionality.
 ## Part of EPIC 1 - Issue #18
+
+const MessageLog = preload("res://scripts/message_log.gd")
 
 ## Current floor number (0-based)
 var floor_number: int = 0
@@ -28,6 +31,9 @@ var score: int = 0
 ## Seed for deterministic random generation (can be String or int)
 var run_seed: Variant = 0
 
+## Message log for in-run HUD (Issue #36)
+var message_log: MessageLog = MessageLog.new()
+
 func _init(seed_value: Variant = 0) -> void:
 	"""Initialize game state with optional seed."""
 	run_seed = seed_value
@@ -40,6 +46,7 @@ func reset() -> void:
 	shard_collected = false
 	score = 0
 	run_seed = 0
+	message_log.clear()
 
 func add_keycard(amount: int = 1) -> void:
 	"""Add keycards to inventory."""
@@ -52,6 +59,7 @@ func collect_shard() -> void:
 func increment_turn() -> void:
 	"""Increment the turn counter."""
 	turn_count += 1
+	message_log.set_turn(turn_count)
 
 func advance_floor() -> void:
 	"""Advance to the next floor."""
@@ -72,7 +80,8 @@ func to_dict() -> Dictionary:
 		"keycards": keycards,
 		"shard_collected": shard_collected,
 		"score": score,
-		"run_seed": run_seed
+		"run_seed": run_seed,
+		"message_log": message_log.to_dict()
 	}
 
 func from_dict(data: Dictionary) -> void:
@@ -87,6 +96,8 @@ func from_dict(data: Dictionary) -> void:
 	shard_collected = data.get("shard_collected", false)
 	score = data.get("score", 0)
 	run_seed = data.get("run_seed", 0)
+	if data.has("message_log"):
+		message_log.from_dict(data.get("message_log"))
 
 func get_floor_number() -> int:
 	"""Get the current floor number."""
@@ -111,3 +122,11 @@ func get_score() -> int:
 func get_run_seed() -> Variant:
 	"""Get the run seed."""
 	return run_seed
+
+func add_message(text: String, type: String = "info") -> void:
+	"""Add a message to the message log (Issue #36)."""
+	message_log.add_message(text, type)
+
+func get_message_log() -> MessageLog:
+	"""Get the message log (Issue #36)."""
+	return message_log

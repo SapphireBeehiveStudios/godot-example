@@ -19,6 +19,9 @@ signal game_won
 ## Emitted when game is lost
 signal game_lost
 
+## Emitted when a message should be logged (Issue #36)
+signal message_generated(text: String, type: String)
+
 ## Current turn number (increments with each action, including wait)
 var turn_count: int = 0
 
@@ -164,6 +167,7 @@ func execute_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> bool:
 			else:
 				# Move into wall fails - but still consumes a turn
 				action_succeeded = false
+				message_generated.emit("Bumped into a wall.", "info")
 			# Turn count increments regardless of success/failure for moves
 			turn_count += 1
 
@@ -189,6 +193,11 @@ func execute_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> bool:
 		# Handle shard pickup (Issue #22)
 		if pickup_type == "shard":
 			shard_collected = true
+			message_generated.emit("Collected Data Shard!", "pickup")
+		elif pickup_type == "keycard":
+			message_generated.emit("Picked up a keycard.", "pickup")
+		else:
+			message_generated.emit("Picked up %s." % pickup_type, "pickup")
 
 		# Add to inventory
 		if pickup_type in player_inventory:
@@ -206,8 +215,11 @@ func execute_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> bool:
 			floor_complete = true
 			game_over = true
 			win_condition_met = true
+			message_generated.emit("Floor complete! Advancing...", "success")
 			game_won.emit()
-		# If shard not collected, do nothing (exit blocked)
+		else:
+			# If shard not collected, exit is blocked
+			message_generated.emit("Exit blocked - need Data Shard!", "exit")
 
 	# STEP 3: Process guard phase (if guards are present)
 	if guard_system != null:
@@ -219,6 +231,7 @@ func execute_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> bool:
 		var guard_at_player = guard_system.get_guard_at_position(player_position)
 		if guard_at_player != null:
 			game_over = true
+			message_generated.emit("Caught by guard! Mission failed.", "guard")
 			game_lost.emit()
 			turn_completed.emit(turn_count)
 			return action_succeeded
@@ -280,6 +293,7 @@ func process_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> Dictio
 			else:
 				result.success = false
 				result.action_result = "Cannot move - blocked by wall"
+				message_generated.emit("Bumped into a wall.", "info")
 				# Turn count still increments for failed moves as it's still an action
 				# Actually, based on acceptance criteria "Move into wall fails (position unchanged)"
 				# and "One input == one turn", we should NOT increment on failed move
@@ -312,6 +326,11 @@ func process_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> Dictio
 		# Handle shard pickup (Issue #22)
 		if pickup_type == "shard":
 			shard_collected = true
+			message_generated.emit("Collected Data Shard!", "pickup")
+		elif pickup_type == "keycard":
+			message_generated.emit("Picked up a keycard.", "pickup")
+		else:
+			message_generated.emit("Picked up %s." % pickup_type, "pickup")
 
 		# Add to inventory
 		if pickup_type in player_inventory:
@@ -331,9 +350,11 @@ func process_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> Dictio
 			floor_complete = true
 			game_over = true
 			result.game_state = "won"
+			message_generated.emit("Floor complete! Advancing...", "success")
 			game_won.emit()
 		else:
 			# Exit blocked - do nothing
+			message_generated.emit("Exit blocked - need Data Shard!", "exit")
 			result.action_result += " (exit blocked - shard not collected)"
 
 	# STEP 3: Process guard phase (if guards are present)
@@ -348,6 +369,7 @@ func process_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> Dictio
 		if guard_at_player != null:
 			game_over = true
 			result.game_state = "lost"
+			message_generated.emit("Caught by guard! Mission failed.", "guard")
 			game_lost.emit()
 			result.turn_number = turn_count
 			turn_completed.emit(turn_count)

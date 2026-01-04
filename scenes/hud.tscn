@@ -1,0 +1,57 @@
+[gd_scene load_steps=2 format=3 uid="uid://cpskqg1k8m2i8"]
+
+[ext_resource type="Script" path="res://scripts/hud.gd" id="1"]
+
+[node name="HUD" type="CanvasLayer"]
+script = ExtResource("1")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+
+[node name="TopBar" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="FloorLabel" type="Label" parent="MarginContainer/VBoxContainer/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Floor: 1"
+
+[node name="TurnLabel" type="Label" parent="MarginContainer/VBoxContainer/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Turn: 0"
+
+[node name="InventoryLabel" type="Label" parent="MarginContainer/VBoxContainer/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Keycards: 0 | Shard: No"
+
+[node name="ScoreLabel" type="Label" parent="MarginContainer/VBoxContainer/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Score: 0"
+
+[node name="GridDisplay" type="RichTextLabel" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+text = "[center][color=gray]Game grid will be displayed here[/color][/center]"
+fit_content = true
+
+[node name="MessageLog" type="RichTextLabel" parent="MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+bbcode_enabled = true
+text = "[color=gray]Message log will appear here...[/color]"
+scroll_following = true
