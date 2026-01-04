@@ -1,0 +1,118 @@
+[gd_scene load_steps=2 format=3 uid="uid://c3r5qm5jxqxqt"]
+
+[ext_resource type="Script" path="res://scripts/main_menu.gd" id="1"]
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -150.0
+offset_right = 150.0
+offset_bottom = 150.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TitleLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "TERMINAL HEIST"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Spacer1" type="Control" parent="VBoxContainer"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="SeedLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "Seed (optional, blank for random):"
+horizontal_alignment = 1
+
+[node name="SeedInput" type="LineEdit" parent="VBoxContainer"]
+layout_mode = 2
+placeholder_text = "Enter seed..."
+alignment = 1
+
+[node name="Spacer2" type="Control" parent="VBoxContainer"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+
+[node name="StartButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Start Run"
+
+[node name="ControlsButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Controls"
+
+[node name="QuitButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Quit"
+
+[node name="ControlsPanel" type="Panel" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -200.0
+offset_right = 200.0
+offset_bottom = 200.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ControlsPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ControlsTitle" type="Label" parent="ControlsPanel/VBoxContainer"]
+layout_mode = 2
+text = "CONTROLS"
+horizontal_alignment = 1
+
+[node name="ScrollContainer" type="ScrollContainer" parent="ControlsPanel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ControlsList" type="Label" parent="ControlsPanel/VBoxContainer/ScrollContainer"]
+layout_mode = 2
+text = "Movement: Arrow Keys / WASD
+Wait: Space
+Interact: E
+Restart: R
+Pause: Esc
+
+Objective:
+- Collect the Data Shard ($)
+- Reach the Exit (>)
+- Avoid Guards (G)
+
+Complete all 3 floors to win!"
+
+[node name="CloseButton" type="Button" parent="ControlsPanel/VBoxContainer"]
+layout_mode = 2
+text = "Close"
+
+[connection signal="pressed" from="VBoxContainer/StartButton" to="." method="_on_start_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/ControlsButton" to="." method="_on_controls_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/QuitButton" to="." method="_on_quit_button_pressed"]
+[connection signal="pressed" from="ControlsPanel/VBoxContainer/CloseButton" to="." method="_on_close_button_pressed"]

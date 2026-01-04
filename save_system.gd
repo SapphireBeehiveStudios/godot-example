@@ -6,11 +6,15 @@ extends RefCounted
 ## - Graceful handling of missing files (returns defaults)
 ## - Corrupt file detection and fallback
 ## - Simple API: load() and save(data)
+## - Persistent data (best_score, last_seed) across runs
 ##
-## Part of EPIC 6 - Issue #40
+## Part of EPIC 6 - Issues #40, #41
 
 ## Default save file path
 const DEFAULT_SAVE_PATH: String = "user://savegame.json"
+
+## Persistent data file path (separate from run state)
+const PERSISTENT_DATA_PATH: String = "user://persistent.json"
 
 ## Save game state to JSON file
 ##
@@ -99,3 +103,75 @@ func delete_save(path: String = DEFAULT_SAVE_PATH) -> bool:
 ##   true if save file exists, false otherwise
 func save_exists(path: String = DEFAULT_SAVE_PATH) -> bool:
 	return FileAccess.file_exists(path)
+
+## Load persistent data (best score, last seed)
+##
+## Returns:
+##   Dictionary with keys:
+##   - "best_score": int (default: 0)
+##   - "last_seed": Variant (default: "")
+func load_persistent_data() -> Dictionary:
+	var data = self.load(PERSISTENT_DATA_PATH)
+
+	# Return defaults if file doesn't exist or is corrupt
+	if data.is_empty():
+		return {
+			"best_score": 0,
+			"last_seed": ""
+		}
+
+	# Ensure expected keys exist with defaults
+	return {
+		"best_score": data.get("best_score", 0),
+		"last_seed": data.get("last_seed", "")
+	}
+
+## Save persistent data (best score, last seed)
+##
+## Args:
+##   best_score: The best score achieved across all runs
+##   last_seed: The seed from the most recent run
+##
+## Returns:
+##   true if save succeeded, false otherwise
+func save_persistent_data(best_score: int, last_seed: Variant) -> bool:
+	var data = {
+		"best_score": best_score,
+		"last_seed": last_seed
+	}
+	return save(data, PERSISTENT_DATA_PATH)
+
+## Update best score if current score is higher
+##
+## Args:
+##   current_score: The score from the current run
+##   current_seed: The seed from the current run
+##
+## Returns:
+##   true if save succeeded, false otherwise
+func update_best_score(current_score: int, current_seed: Variant) -> bool:
+	var persistent = load_persistent_data()
+	var best_score = persistent["best_score"]
+
+	# Update best score if current is higher
+	if current_score > best_score:
+		best_score = current_score
+
+	# Always update last seed
+	return save_persistent_data(best_score, current_seed)
+
+## Get the current best score
+##
+## Returns:
+##   The best score as an integer
+func get_best_score() -> int:
+	var persistent = load_persistent_data()
+	return persistent["best_score"]
+
+## Get the last used seed
+##
+## Returns:
+##   The last seed (can be String, int, or empty string)
+func get_last_seed() -> Variant:
+	var persistent = load_persistent_data()
+	return persistent["last_seed"]
