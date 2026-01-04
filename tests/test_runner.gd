@@ -17,6 +17,8 @@ func _init() -> void:
 		"res://tests/test_smoke.gd",
 		"res://tests/test_example.gd",
 		"res://tests/test_ascii_title.gd",
+		"res://tests/test_game_state.gd",
+		"res://tests/test_save_system.gd",
 		"res://tests/test_turn_system.gd",
 		"res://tests/test_pathfinding.gd",
 		"res://tests/test_grid_map.gd",
@@ -25,6 +27,8 @@ func _init() -> void:
 		"res://tests/test_game_manager.gd",
 		"res://tests/test_deterministic_rng.gd",
 		"res://tests/test_dungeon_generator.gd",
+		"res://tests/test_shard_exit.gd",
+		"res://tests/test_renderer.gd",
 	]
 
 	# Run each test module
