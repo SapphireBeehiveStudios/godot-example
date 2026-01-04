@@ -39,6 +39,7 @@ func setup_help_text() -> void:
   E        - Interact (open doors with keycards)
   R        - Restart current floor
   H        - Toggle this help screen
+  M        - Toggle sound effects
   Esc      - Pause game
 
 [b][color=#ffff00]ENTITIES:[/color][/b]
