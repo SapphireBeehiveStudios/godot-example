@@ -19,6 +19,10 @@ func run_all() -> Dictionary:
 	test_caught_display()
 	test_seed_display()
 	test_no_save_system_graceful_handling()
+	test_detailed_statistics_display()
+	test_guards_evaded_display()
+	test_play_time_formatting()
+	test_best_run_save_and_load()
 
 	return {"passed": tests_passed, "failed": tests_failed}
 
@@ -215,4 +219,123 @@ func test_no_save_system_graceful_handling() -> void:
 	var save_result = end_screen.save_best_score(100)
 	assert_false(save_result, "Returns false when save system unavailable")
 
+	end_screen.free()
+
+func test_detailed_statistics_display() -> void:
+	"""Test display of detailed run statistics (Issue #95)."""
+	var end_screen_scene = load("res://scenes/end_screen.tscn")
+	var end_screen = end_screen_scene.instantiate()
+
+	# Create mock game state with statistics
+	var game_state = load("res://game_state.gd").new()
+	game_state.score = 100
+	game_state.run_seed = 12345
+	game_state.turn_count = 50
+	game_state.floor_number = 3
+	game_state.keycards = 2
+	game_state.guards_evaded = 5
+
+	# Clean up best score file
+	const BEST_PATH = "user://best_score.json"
+	if FileAccess.file_exists(BEST_PATH):
+		DirAccess.remove_absolute(BEST_PATH)
+
+	# Show results
+	end_screen.show_results(game_state, true)
+
+	# Verify statistics displayed
+	assert_eq(end_screen.turns_label.text, "Total Turns: 50", "Turns displayed correctly")
+	assert_eq(end_screen.floors_label.text, "Floors Completed: 3", "Floors displayed correctly")
+	assert_eq(end_screen.keycards_label.text, "Keycards Collected: 2", "Keycards displayed correctly")
+	assert_eq(end_screen.guards_label.text, "Guards Evaded: 5", "Guards evaded displayed correctly")
+
+	# Clean up
+	end_screen.queue_free()
+
+func test_guards_evaded_display() -> void:
+	"""Test guards evaded display shows 'caught' when player was caught (Issue #95)."""
+	var end_screen_scene = load("res://scenes/end_screen.tscn")
+	var end_screen = end_screen_scene.instantiate()
+
+	# Create game state where player was caught
+	var game_state = load("res://game_state.gd").new()
+	game_state.score = 50
+	game_state.guards_evaded = 3
+	game_state.caught_by_guard = true
+
+	# Clean up best score file
+	const BEST_PATH = "user://best_score.json"
+	if FileAccess.file_exists(BEST_PATH):
+		DirAccess.remove_absolute(BEST_PATH)
+
+	# Show results (false = caught/lost)
+	end_screen.show_results(game_state, false)
+
+	# Verify guards label shows "(caught)"
+	assert_eq(end_screen.guards_label.text, "Guards Evaded: 3 (caught)", "Guards label shows caught status")
+
+	# Clean up
+	end_screen.queue_free()
+
+func test_play_time_formatting() -> void:
+	"""Test play time formatting (Issue #95)."""
+	var end_screen = load("res://scripts/end_screen.gd").new()
+
+	# Test seconds only
+	var formatted = end_screen.format_time(45)
+	assert_eq(formatted, "Time Played: 45s", "Seconds only formatted correctly")
+
+	# Test minutes and seconds
+	formatted = end_screen.format_time(150)  # 2m 30s
+	assert_eq(formatted, "Time Played: 2m 30s", "Minutes and seconds formatted correctly")
+
+	# Test exactly 1 minute
+	formatted = end_screen.format_time(60)
+	assert_eq(formatted, "Time Played: 1m 0s", "Exactly 1 minute formatted correctly")
+
+	# Test 0 seconds
+	formatted = end_screen.format_time(0)
+	assert_eq(formatted, "Time Played: 0s", "Zero seconds formatted correctly")
+
+	end_screen.free()
+
+func test_best_run_save_and_load() -> void:
+	"""Test saving and loading best run statistics (Issue #95)."""
+	var end_screen = load("res://scripts/end_screen.gd").new()
+	end_screen._ready()  # Initialize save system
+
+	const BEST_RUN_PATH = "user://best_run.json"
+
+	# Clean up any existing file
+	if FileAccess.file_exists(BEST_RUN_PATH):
+		DirAccess.remove_absolute(BEST_RUN_PATH)
+
+	# Create mock game state
+	var game_state = load("res://game_state.gd").new()
+	game_state.score = 200
+	game_state.turn_count = 75
+	game_state.floor_number = 5
+	game_state.keycards = 3
+	game_state.guards_evaded = 8
+	game_state.caught_by_guard = false
+	game_state.run_seed = "test-seed"
+	game_state.start_time_msec = Time.get_ticks_msec() - 120000  # 2 minutes ago
+
+	# Save best run
+	var save_result = end_screen.save_best_run(game_state)
+	assert_true(save_result, "Best run save succeeds")
+
+	# Load and verify
+	var loaded_run = end_screen.load_best_run()
+	assert_eq(loaded_run.get("score", -1), 200, "Score loaded correctly")
+	assert_eq(loaded_run.get("turns", -1), 75, "Turns loaded correctly")
+	assert_eq(loaded_run.get("floors", -1), 5, "Floors loaded correctly")
+	assert_eq(loaded_run.get("keycards", -1), 3, "Keycards loaded correctly")
+	assert_eq(loaded_run.get("guards_evaded", -1), 8, "Guards evaded loaded correctly")
+	assert_false(loaded_run.get("caught_by_guard", true), "Caught status loaded correctly")
+	assert_eq(loaded_run.get("seed", ""), "test-seed", "Seed loaded correctly")
+	assert_true(loaded_run.get("play_time_seconds", -1) >= 0, "Play time loaded correctly")
+
+	# Clean up
+	DirAccess.remove_absolute(BEST_RUN_PATH)
 	end_screen.free()
