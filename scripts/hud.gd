@@ -22,6 +22,7 @@ var game_state = null
 @onready var score_label: Label = $MarginContainer/VBoxContainer/TopBar/ScoreLabel
 @onready var grid_display: RichTextLabel = $MarginContainer/VBoxContainer/GridDisplay
 @onready var message_log_display: RichTextLabel = $MarginContainer/VBoxContainer/MessageLog
+@onready var flash_overlay: ColorRect = %FlashOverlay
 
 func _ready() -> void:
 	"""Initialize the HUD."""
@@ -110,3 +111,20 @@ func update_grid_display(grid_text: String) -> void:
 		grid_text: BBCode-formatted grid text
 	"""
 	grid_display.text = grid_text
+
+func flash_red() -> void:
+	"""
+	Flash the screen red for 0.3 seconds (capture effect).
+	Issue #90 - Screen flash on capture
+	"""
+	if not flash_overlay:
+		return
+
+	# Make overlay visible and fully opaque red
+	flash_overlay.visible = true
+	flash_overlay.color = Color(1, 0, 0, 0.7)  # Red with 70% opacity
+
+	# Create a tween to fade out
+	var tween = create_tween()
+	tween.tween_property(flash_overlay, "color:a", 0.0, 0.3)
+	tween.tween_callback(func(): flash_overlay.visible = false)

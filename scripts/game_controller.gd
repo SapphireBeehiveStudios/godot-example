@@ -29,6 +29,11 @@ const STEALTH_BONUS := 50  ## Bonus for completing without being spotted
 var was_spotted: bool = false
 
 @onready var hud = $HUD
+
+## Help overlay reference
+@onready var help_overlay = $HelpOverlay
+
+## Menu reference
 var menu: Control = null
 var current_seed: int = 0
 var game_active: bool = false
@@ -44,7 +49,19 @@ func _on_start_run_requested(seed_value: Variant) -> void:
 	start_game(seed_value)
 
 func _input(event: InputEvent) -> void:
+	"""Handle game input."""
+	# Help overlay can be toggled anytime during gameplay
+	if event.is_action_pressed("help"):
+		if help_overlay:
+			help_overlay.toggle_visibility()
+		get_viewport().set_input_as_handled()
+		return
+
 	if not game_active:
+		return
+
+	# Don't process game input if help overlay is visible
+	if help_overlay and help_overlay.is_visible_overlay():
 		return
 
 	if event.is_action_pressed("reset"):
@@ -262,6 +279,11 @@ func _on_floor_complete() -> void:
 	start_floor()
 
 func _on_game_lost() -> void:
+	"""Called when the game is lost (caught by guard)."""
+	# Flash screen red (Issue #90)
+	if hud and hud.has_method("flash_red"):
+		hud.flash_red()
+
 	var floor_num = progression_manager.get_current_floor()
 	message_log.add_message("CAUGHT! Floor %d - Score: %d - Press R to retry" % [floor_num, score], "failure")
 	game_active = false
