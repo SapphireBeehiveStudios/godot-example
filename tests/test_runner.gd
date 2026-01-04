@@ -16,6 +16,7 @@ func _init() -> void:
 	var test_modules = [
 		"res://tests/test_example.gd",
 		"res://tests/test_ascii_title.gd",
+		"res://tests/test_turn_system.gd",
 		"res://tests/test_pathfinding.gd",
 		"res://tests/test_grid_map.gd",
 		"res://tests/test_guard.gd",
