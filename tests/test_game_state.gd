@@ -50,7 +50,7 @@ func assert_false(condition: bool, test_name: String) -> void:
 func test_initial_state() -> void:
 	"""Test that GameState starts with correct default values."""
 	var state = load("res://game_state.gd").new()
-	assert_eq(state.floor_number, 0, "Floor number defaults to 0")
+	assert_eq(state.floor_number, 1, "Floor number defaults to 1")
 	assert_eq(state.turn_count, 0, "Turn count defaults to 0")
 	assert_eq(state.keycards, 0, "Keycards default to 0")
 	assert_false(state.shard_collected, "Shard not collected initially")
@@ -96,11 +96,11 @@ func test_increment_turn() -> void:
 func test_advance_floor() -> void:
 	"""Test advancing to next floor."""
 	var state = load("res://game_state.gd").new()
-	assert_eq(state.floor_number, 0, "Floor starts at 0")
-	state.advance_floor()
-	assert_eq(state.floor_number, 1, "Floor advanced to 1")
+	assert_eq(state.floor_number, 1, "Floor starts at 1")
 	state.advance_floor()
 	assert_eq(state.floor_number, 2, "Floor advanced to 2")
+	state.advance_floor()
+	assert_eq(state.floor_number, 3, "Floor advanced to 3")
 
 func test_add_score() -> void:
 	"""Test adding score."""
@@ -122,7 +122,7 @@ func test_reset() -> void:
 
 	state.reset()
 
-	assert_eq(state.floor_number, 0, "Floor reset to 0")
+	assert_eq(state.floor_number, 1, "Floor reset to 1")
 	assert_eq(state.turn_count, 0, "Turn count reset to 0")
 	assert_eq(state.keycards, 0, "Keycards reset to 0")
 	assert_false(state.shard_collected, "Shard reset to false")

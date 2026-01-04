@@ -10,8 +10,8 @@ extends RefCounted
 ## This class is designed to be serializable for save/load functionality.
 ## Part of EPIC 1 - Issue #18
 
-## Current floor number (0-based)
-var floor_number: int = 0
+## Current floor number (1-based, range 1..3)
+var floor_number: int = 1
 
 ## Total turns taken in current run
 var turn_count: int = 0
@@ -34,7 +34,7 @@ func _init(seed_value: Variant = 0) -> void:
 
 func reset() -> void:
 	"""Reset all state to defaults."""
-	floor_number = 0
+	floor_number = 1
 	turn_count = 0
 	keycards = 0
 	shard_collected = false
@@ -81,7 +81,7 @@ func from_dict(data: Dictionary) -> void:
 	Args:
 		data: Dictionary containing state data
 	"""
-	floor_number = data.get("floor_number", 0)
+	floor_number = data.get("floor_number", 1)
 	turn_count = data.get("turn_count", 0)
 	keycards = data.get("keycards", 0)
 	shard_collected = data.get("shard_collected", false)
