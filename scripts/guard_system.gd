@@ -8,6 +8,9 @@ extends Node
 ##
 ## Part of EPIC 4 - Issue #31
 
+## Emitted when a message should be logged (Issue #36)
+signal message_generated(text: String, type: String)
+
 ## Guard state enumeration
 enum GuardState {
 	PATROL,  ## Random walk patrol behavior

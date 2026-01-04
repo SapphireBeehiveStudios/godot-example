@@ -7,6 +7,9 @@ extends Node2D
 ## - Chase timer (N turns)
 ## - State transitions (Patrol -> Chase -> Patrol)
 
+## Emitted when a message should be logged (Issue #36)
+signal message_generated(text: String, type: String)
+
 enum State {
 	PATROL,
 	CHASE
@@ -113,11 +116,13 @@ func update_ai(player_pos: Vector2i) -> void:
 func enter_chase_state() -> void:
 	current_state = State.CHASE
 	chase_turns_remaining = max_chase_turns
+	message_generated.emit("Guard spotted you!", "guard")
 
 ## Exit chase state
 func exit_chase_state() -> void:
 	current_state = State.PATROL
 	chase_turns_remaining = 0
+	message_generated.emit("Guard lost sight of you.", "info")
 
 ## Get next move using BFS pathfinding
 func get_next_move() -> Vector2i:
