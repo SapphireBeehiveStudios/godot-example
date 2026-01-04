@@ -14,6 +14,7 @@ func _init() -> void:
 
 	# List of test modules to run
 	var test_modules = [
+		"res://tests/test_smoke.gd",
 		"res://tests/test_example.gd",
 		"res://tests/test_ascii_title.gd",
 		"res://tests/test_turn_system.gd",
