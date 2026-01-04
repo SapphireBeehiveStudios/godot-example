@@ -31,8 +31,8 @@ var player_position: Vector2i = Vector2i(0, 0)
 ## Player inventory (for keycards, etc.)
 var player_inventory: Dictionary = {}
 
-## Grid of tiles (walls, pickups, etc.)
-## Structure: {Vector2i: {"type": "wall"|"floor"|"pickup", "pickup_type": "keycard", etc.}}
+## Grid of tiles (walls, pickups, doors, etc.)
+## Structure: {Vector2i: {"type": "wall"|"floor"|"pickup"|"door_closed"|"door_open", "pickup_type": "keycard", etc.}}
 var grid: Dictionary = {}
 
 ## Win condition flag (can be set externally for gating)
@@ -95,8 +95,8 @@ func get_grid_tile(pos: Vector2i) -> Dictionary:
 func is_tile_walkable(pos: Vector2i) -> bool:
 	"""Check if a tile can be walked on."""
 	var tile = get_grid_tile(pos)
-	# Walls and closed doors are not walkable
-	return tile.type != "wall" and tile.type != "door"
+	# Walls and closed doors block movement
+	return tile.type != "wall" and tile.type != "door_closed"
 
 func set_player_position(pos: Vector2i) -> void:
 	"""Set the player's position directly."""
@@ -128,6 +128,28 @@ func get_pickup(pos: Vector2i) -> String:
 	if tile.type == "pickup":
 		return tile.get("pickup_type", "")
 	return ""
+
+func add_door(pos: Vector2i, is_open: bool = false) -> void:
+	"""Add a door at the specified position."""
+	var door_type = "door_open" if is_open else "door_closed"
+	set_grid_tile(pos, door_type)
+
+func is_door(pos: Vector2i) -> bool:
+	"""Check if a position has a door (open or closed)."""
+	var tile = get_grid_tile(pos)
+	return tile.type == "door_closed" or tile.type == "door_open"
+
+func is_door_closed(pos: Vector2i) -> bool:
+	"""Check if a position has a closed door."""
+	var tile = get_grid_tile(pos)
+	return tile.type == "door_closed"
+
+func open_door(pos: Vector2i) -> bool:
+	"""Open a door at the specified position. Returns true if successful."""
+	if is_door_closed(pos):
+		set_grid_tile(pos, "door_open")
+		return true
+	return false
 
 func get_keycard_count() -> int:
 	"""Get the number of keycards in inventory."""
@@ -177,8 +199,22 @@ func execute_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> bool:
 			turn_count += 1
 
 		"interact":
-			# Placeholder for future interaction logic
-			action_succeeded = true
+			# Interaction logic for doors (Issue #21)
+			# Check the tile in the given direction for a door
+			var target_pos = player_position + direction
+			if is_door_closed(target_pos):
+				# Check if player has a keycard
+				if get_keycard_count() > 0:
+					# Consume one keycard and open the door
+					player_inventory["keycard"] -= 1
+					open_door(target_pos)
+					action_succeeded = true
+				else:
+					# No keycard - interaction fails
+					action_succeeded = false
+			else:
+				# No closed door at target position - interaction fails
+				action_succeeded = false
 			turn_count += 1
 
 		_:
@@ -299,9 +335,24 @@ func process_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> Dictio
 			turn_count += 1
 
 		"interact":
-			# Placeholder for future interaction logic
-			result.success = true
-			result.action_result = "Interacted"
+			# Interaction logic for doors (Issue #21)
+			var target_pos = player_position + direction
+			if is_door_closed(target_pos):
+				# Check if player has a keycard
+				if get_keycard_count() > 0:
+					# Consume one keycard and open the door
+					player_inventory["keycard"] -= 1
+					open_door(target_pos)
+					result.success = true
+					result.action_result = "Opened door at %s (keycard consumed)" % str(target_pos)
+				else:
+					# No keycard - interaction fails
+					result.success = false
+					result.action_result = "Cannot open door - no keycard"
+			else:
+				# No closed door at target position
+				result.success = false
+				result.action_result = "No door to interact with at %s" % str(target_pos)
 			turn_count += 1
 
 		_:
