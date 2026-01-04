@@ -41,6 +41,12 @@ var win_condition_met: bool = false
 ## Game over flag
 var game_over: bool = false
 
+## Shard collection flag (for exit gating - Issue #22)
+var shard_collected: bool = false
+
+## Floor complete flag (for exit interaction - Issue #22)
+var floor_complete: bool = false
+
 ## Guard system reference (optional, for EPIC 4 integration)
 var guard_system = null
 
@@ -66,6 +72,8 @@ func reset(seed_value: int = 0) -> void:
 	grid.clear()
 	win_condition_met = false
 	game_over = false
+	shard_collected = false
+	floor_complete = false
 
 	if seed_value != 0:
 		rng.seed = seed_value
@@ -178,6 +186,10 @@ func execute_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> bool:
 	if current_tile.type == "pickup":
 		var pickup_type = current_tile.get("pickup_type", "unknown")
 
+		# Handle shard pickup (Issue #22)
+		if pickup_type == "shard":
+			shard_collected = true
+
 		# Add to inventory
 		if pickup_type in player_inventory:
 			player_inventory[pickup_type] += 1
@@ -186,6 +198,16 @@ func execute_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> bool:
 
 		# Remove pickup from grid (convert to floor)
 		grid[player_position] = {"type": "floor"}
+
+	# Handle exit interaction (Issue #22)
+	if current_tile.type == "exit":
+		if shard_collected:
+			# Exit with shard collected triggers floor complete
+			floor_complete = true
+			game_over = true
+			win_condition_met = true
+			game_won.emit()
+		# If shard not collected, do nothing (exit blocked)
 
 	# STEP 3: Process guard phase (if guards are present)
 	if guard_system != null:
@@ -287,6 +309,10 @@ func process_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> Dictio
 	if current_tile.type == "pickup":
 		var pickup_type = current_tile.get("pickup_type", "unknown")
 
+		# Handle shard pickup (Issue #22)
+		if pickup_type == "shard":
+			shard_collected = true
+
 		# Add to inventory
 		if pickup_type in player_inventory:
 			player_inventory[pickup_type] += 1
@@ -297,6 +323,18 @@ func process_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> Dictio
 		grid[player_position] = {"type": "floor"}
 
 		result.pickups.append(pickup_type)
+
+	# Handle exit interaction (Issue #22)
+	if current_tile.type == "exit":
+		if shard_collected:
+			# Exit with shard collected triggers floor complete
+			floor_complete = true
+			game_over = true
+			result.game_state = "won"
+			game_won.emit()
+		else:
+			# Exit blocked - do nothing
+			result.action_result += " (exit blocked - shard not collected)"
 
 	# STEP 3: Process guard phase (if guards are present)
 	if guard_system != null:
@@ -343,3 +381,11 @@ func set_guard_system(guards) -> void:
 	# Set up walkability callback so guards can check the grid
 	if guard_system != null and guard_system.has_method("set_walkability_checker"):
 		guard_system.set_walkability_checker(is_tile_walkable)
+
+func is_shard_collected() -> bool:
+	"""Check if the shard has been collected (Issue #22)."""
+	return shard_collected
+
+func is_floor_complete() -> bool:
+	"""Check if the floor is complete (exit triggered with shard - Issue #22)."""
+	return floor_complete
