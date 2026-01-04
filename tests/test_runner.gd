@@ -16,6 +16,7 @@ func _init() -> void:
 	var test_modules = [
 		"res://tests/test_example.gd",
 		"res://tests/test_ascii_title.gd",
+		"res://tests/test_game_manager.gd",
 	]
 
 	# Run each test module
