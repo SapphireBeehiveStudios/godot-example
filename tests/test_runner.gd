@@ -18,6 +18,7 @@ func _init() -> void:
 		"res://tests/test_example.gd",
 		"res://tests/test_ascii_title.gd",
 		"res://tests/test_game_state.gd",
+		"res://tests/test_save_system.gd",
 		"res://tests/test_turn_system.gd",
 		"res://tests/test_pathfinding.gd",
 		"res://tests/test_grid_map.gd",
