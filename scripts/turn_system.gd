@@ -101,6 +101,15 @@ func is_tile_walkable(pos: Vector2i) -> bool:
 	# Walls and closed doors block movement
 	return tile.type != "wall" and tile.type != "door_closed"
 
+func get_movement_cost(pos: Vector2i) -> int:
+	"""Get the movement cost for a tile (in turns)."""
+	var tile = get_grid_tile(pos)
+	match tile.type:
+		"water":
+			return 2
+		_:
+			return 1
+
 func set_player_position(pos: Vector2i) -> void:
 	"""Set the player's position directly."""
 	player_position = pos
@@ -187,12 +196,13 @@ func execute_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> bool:
 			if is_tile_walkable(new_position):
 				player_position = new_position
 				action_succeeded = true
+				# Movement cost varies by tile type (water = 2 turns, others = 1)
+				turn_count += get_movement_cost(new_position)
 			else:
 				# Move into wall fails - but still consumes a turn
 				action_succeeded = false
 				message_generated.emit("Bumped into a wall.", "info")
-			# Turn count increments regardless of success/failure for moves
-			turn_count += 1
+				turn_count += 1
 
 		"wait":
 			action_succeeded = true
@@ -326,7 +336,8 @@ func process_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> Dictio
 				player_position = new_position
 				result.success = true
 				result.action_result = "Moved to %s" % str(new_position)
-				turn_count += 1
+				# Movement cost varies by tile type (water = 2 turns, others = 1)
+				turn_count += get_movement_cost(new_position)
 			else:
 				result.success = false
 				result.action_result = "Cannot move - blocked by wall"
@@ -455,6 +466,9 @@ func set_guard_system(guards) -> void:
 	# Set up walkability callback so guards can check the grid
 	if guard_system != null and guard_system.has_method("set_walkability_checker"):
 		guard_system.set_walkability_checker(is_tile_walkable)
+	# Set up movement cost callback for water tiles (Issue #93)
+	if guard_system != null and guard_system.has_method("set_movement_cost_checker"):
+		guard_system.set_movement_cost_checker(get_movement_cost)
 
 func is_shard_collected() -> bool:
 	"""Check if the shard has been collected (Issue #22)."""

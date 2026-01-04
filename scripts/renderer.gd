@@ -7,6 +7,7 @@ extends RefCounted
 ##   G = Guard
 ##   # = Wall
 ##   . = Floor
+##   ~ = Water
 ##   D = Door (open/closed)
 ##   k = Keycard
 ##   $ = Shard
@@ -20,6 +21,7 @@ const COLOR_PLAYER := "aqua"
 const COLOR_GUARD := "red"
 const COLOR_WALL := "gray"
 const COLOR_FLOOR := "white"
+const COLOR_WATER := "cyan"
 const COLOR_DOOR_OPEN := "green"
 const COLOR_DOOR_CLOSED := "yellow"
 const COLOR_KEYCARD := "blue"
@@ -119,6 +121,8 @@ func _get_character_at_position(pos: Vector2i, player_pos: Vector2i, guard_set: 
 				return _colorize("#", COLOR_WALL)
 			"floor":
 				return _colorize(".", COLOR_FLOOR)
+			"water":
+				return _colorize("~", COLOR_WATER)
 			"door_open":
 				return _colorize("D", COLOR_DOOR_OPEN)
 			"door_closed":
