@@ -98,7 +98,7 @@ func get_grid_tile(pos: Vector2i) -> Dictionary:
 func is_tile_walkable(pos: Vector2i) -> bool:
 	"""Check if a tile can be walked on."""
 	var tile = get_grid_tile(pos)
-	# Walls and closed doors block movement
+	# Walls and closed doors block movement; traps are walkable but trigger effects
 	return tile.type != "wall" and tile.type != "door_closed"
 
 func get_movement_cost(pos: Vector2i) -> int:
@@ -180,9 +180,10 @@ func execute_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> bool:
 
 	Strict turn order:
 	1. Resolve player action (move/wait/interact)
-	2. Resolve pickups on tile
-	3. Process guard phase (guards move)
-	4. Check win/lose conditions
+	2. Check for trap triggers (Issue #94)
+	3. Resolve pickups on tile
+	4. Process guard phase (guards move)
+	5. Check win/lose conditions
 	"""
 	if game_over:
 		return false
@@ -232,8 +233,18 @@ func execute_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> bool:
 			action_succeeded = false
 			turn_count += 1
 
-	# STEP 2: Resolve pickups on tile
+	# STEP 2: Check for trap triggers (Issue #94)
 	var current_tile = get_grid_tile(player_position)
+	if current_tile.type == "trap":
+		# Trap triggered - alert nearby guards and disarm
+		message_generated.emit("Trap triggered! Guards alerted!", "trap")
+		if guard_system != null:
+			guard_system.alert_guards_in_radius(player_position, 5)
+		# Disarm trap (one-time use)
+		grid[player_position] = {"type": "floor"}
+
+	# STEP 3: Resolve pickups on tile
+	current_tile = get_grid_tile(player_position)
 	if current_tile.type == "pickup":
 		var pickup_type = current_tile.get("pickup_type", "unknown")
 
@@ -256,6 +267,7 @@ func execute_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> bool:
 		grid[player_position] = {"type": "floor"}
 
 	# Handle exit interaction (Issue #22)
+	current_tile = get_grid_tile(player_position)
 	if current_tile.type == "exit":
 		if shard_collected:
 			# Exit with shard collected triggers floor complete
@@ -268,11 +280,11 @@ func execute_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> bool:
 			# If shard not collected, exit is blocked
 			message_generated.emit("Exit blocked - need Data Shard!", "exit")
 
-	# STEP 3: Process guard phase (if guards are present)
+	# STEP 4: Process guard phase (if guards are present)
 	if guard_system != null:
 		guard_system.process_guard_phase()
 
-	# STEP 4: Check win/lose conditions
+	# STEP 5: Check win/lose conditions
 	# Lose: Check if any guard is on player position
 	if guard_system != null:
 		var guard_at_player = guard_system.get_guard_at_position(player_position)
@@ -381,8 +393,19 @@ func process_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> Dictio
 			result.action_result = "Unknown action: %s" % action
 			return result
 
-	# STEP 2: Resolve pickups on tile
+	# STEP 2: Check for trap triggers (Issue #94)
 	var current_tile = get_grid_tile(player_position)
+	if current_tile.type == "trap":
+		# Trap triggered - alert nearby guards and disarm
+		message_generated.emit("Trap triggered! Guards alerted!", "trap")
+		if guard_system != null:
+			guard_system.alert_guards_in_radius(player_position, 5)
+		# Disarm trap (one-time use)
+		grid[player_position] = {"type": "floor"}
+		result.action_result += " (trap triggered!)"
+
+	# STEP 3: Resolve pickups on tile
+	current_tile = get_grid_tile(player_position)
 	if current_tile.type == "pickup":
 		var pickup_type = current_tile.get("pickup_type", "unknown")
 
@@ -407,6 +430,7 @@ func process_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> Dictio
 		result.pickups.append(pickup_type)
 
 	# Handle exit interaction (Issue #22)
+	current_tile = get_grid_tile(player_position)
 	if current_tile.type == "exit":
 		if shard_collected:
 			# Exit with shard collected triggers floor complete
@@ -420,12 +444,12 @@ func process_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> Dictio
 			message_generated.emit("Exit blocked - need Data Shard!", "exit")
 			result.action_result += " (exit blocked - shard not collected)"
 
-	# STEP 3: Process guard phase (if guards are present)
+	# STEP 4: Process guard phase (if guards are present)
 	if guard_system != null:
 		var guard_result = guard_system.process_guard_phase()
 		result["guard_info"] = guard_result
 
-	# STEP 4: Check win/lose conditions
+	# STEP 5: Check win/lose conditions
 	# Lose: Check if any guard is on player position
 	if guard_system != null:
 		var guard_at_player = guard_system.get_guard_at_position(player_position)
