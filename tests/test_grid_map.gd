@@ -1,33 +1,48 @@
 extends Node
 ## Grid Map Test Module
 ##
-## Tests for line-of-sight functionality in grid_map.gd
+## Tests for TileGrid class functionality
+
+# Preload the TileGrid class
+const TileGrid = preload("res://grid_map.gd")
 
 var tests_passed := 0
 var tests_failed := 0
-var grid_map = null
 
 func run_all() -> Dictionary:
 	"""Run all tests in this module and return results."""
-	# Load the grid_map script
-	grid_map = load("res://grid_map.gd").new()
+	# Test basic initialization and configuration
+	test_default_grid_size()
+	test_custom_grid_size()
+	test_default_tile_type()
 
-	test_same_position_has_los()
-	test_horizontal_clear_corridor()
-	test_vertical_clear_corridor()
-	test_horizontal_wall_blocker()
-	test_vertical_wall_blocker()
-	test_horizontal_closed_door_blocker()
-	test_vertical_closed_door_blocker()
-	test_horizontal_open_door_no_block()
-	test_vertical_open_door_no_block()
-	test_diagonal_no_los()
-	test_out_of_bounds()
-	test_adjacent_positions()
-	test_multiple_blockers()
+	# Test bounds checking
+	test_is_in_bounds_valid()
+	test_is_in_bounds_edges()
+	test_is_in_bounds_out_of_bounds()
 
-	# Clean up
-	grid_map.free()
+	# Test tile get/set operations
+	test_set_and_get_tile()
+	test_set_tile_out_of_bounds()
+	test_get_tile_out_of_bounds()
+
+	# Test walkability
+	test_walkability_floor()
+	test_walkability_wall()
+	test_walkability_exit()
+	test_walkability_door_open()
+	test_walkability_door_closed()
+	test_walkability_out_of_bounds()
+
+	# Test door state management
+	test_door_state_open()
+	test_door_state_closed()
+	test_door_state_toggle()
+
+	# Test neighbor queries
+	test_get_neighbors_4dir_center()
+	test_get_neighbors_4dir_corner()
+	test_get_neighbors_4dir_edge()
 
 	return {"passed": tests_passed, "failed": tests_failed}
 
@@ -49,239 +64,180 @@ func assert_false(condition: bool, test_name: String) -> void:
 	"""Assert that condition is false."""
 	assert_eq(condition, false, test_name)
 
-## Test implementations
-func test_same_position_has_los() -> void:
-	"""Test that same position always has LoS."""
-	var grid = [[0, 0], [0, 0]]
-	var pos = Vector2i(0, 0)
-	assert_true(
-		grid_map.has_line_of_sight(pos, pos, grid),
-		"Same position has LoS"
-	)
+## Test: Default grid size is 24x14
+func test_default_grid_size() -> void:
+	var grid_map = TileGrid.new()
+	assert_eq(grid_map.width, 24, "Default grid width is 24")
+	assert_eq(grid_map.height, 14, "Default grid height is 14")
 
-func test_horizontal_clear_corridor() -> void:
-	"""Test horizontal LoS with clear corridor (acceptance criteria)."""
-	# Create a grid with a clear horizontal corridor
-	# E E E E E  (row 0)
-	# W W W W W  (row 1)
-	var grid = [
-		[0, 0, 0, 0, 0],  # All empty
-		[1, 1, 1, 1, 1]   # All walls
-	]
+## Test: Custom grid size works
+func test_custom_grid_size() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	assert_eq(grid_map.width, 10, "Custom grid width is 10")
+	assert_eq(grid_map.height, 8, "Custom grid height is 8")
 
-	# Test horizontal LoS in clear row
-	assert_true(
-		grid_map.has_line_of_sight(Vector2i(0, 0), Vector2i(4, 0), grid),
-		"Clear horizontal corridor has LoS"
-	)
+## Test: Default tile type is FLOOR
+func test_default_tile_type() -> void:
+	var grid_map = TileGrid.new(5, 5)
+	var tile = grid_map.get_tile(Vector2i(2, 2))
+	assert_eq(tile, TileGrid.TileType.FLOOR, "Default tile type is FLOOR")
 
-	# Test reverse direction
-	assert_true(
-		grid_map.has_line_of_sight(Vector2i(4, 0), Vector2i(0, 0), grid),
-		"Clear horizontal corridor has LoS (reverse)"
-	)
+## Test: is_in_bounds returns true for valid positions
+func test_is_in_bounds_valid() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	assert_true(grid_map.is_in_bounds(Vector2i(0, 0)), "Top-left is in bounds")
+	assert_true(grid_map.is_in_bounds(Vector2i(5, 4)), "Center is in bounds")
+	assert_true(grid_map.is_in_bounds(Vector2i(9, 7)), "Bottom-right is in bounds")
 
-func test_vertical_clear_corridor() -> void:
-	"""Test vertical LoS with clear corridor (acceptance criteria)."""
-	# Create a grid with a clear vertical corridor
-	# E W
-	# E W
-	# E W
-	# E W
-	var grid = [
-		[0, 1],
-		[0, 1],
-		[0, 1],
-		[0, 1]
-	]
+## Test: is_in_bounds works correctly at edges
+func test_is_in_bounds_edges() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	assert_true(grid_map.is_in_bounds(Vector2i(0, 0)), "Top-left edge is in bounds")
+	assert_true(grid_map.is_in_bounds(Vector2i(9, 0)), "Top-right edge is in bounds")
+	assert_true(grid_map.is_in_bounds(Vector2i(0, 7)), "Bottom-left edge is in bounds")
+	assert_true(grid_map.is_in_bounds(Vector2i(9, 7)), "Bottom-right edge is in bounds")
 
-	# Test vertical LoS in clear column
-	assert_true(
-		grid_map.has_line_of_sight(Vector2i(0, 0), Vector2i(0, 3), grid),
-		"Clear vertical corridor has LoS"
-	)
+## Test: is_in_bounds returns false for out-of-bounds positions
+func test_is_in_bounds_out_of_bounds() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	assert_false(grid_map.is_in_bounds(Vector2i(-1, 0)), "Negative x is out of bounds")
+	assert_false(grid_map.is_in_bounds(Vector2i(0, -1)), "Negative y is out of bounds")
+	assert_false(grid_map.is_in_bounds(Vector2i(10, 0)), "x >= width is out of bounds")
+	assert_false(grid_map.is_in_bounds(Vector2i(0, 8)), "y >= height is out of bounds")
 
-	# Test reverse direction
-	assert_true(
-		grid_map.has_line_of_sight(Vector2i(0, 3), Vector2i(0, 0), grid),
-		"Clear vertical corridor has LoS (reverse)"
-	)
+## Test: set_tile and get_tile work correctly
+func test_set_and_get_tile() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	grid_map.set_tile(Vector2i(5, 4), TileGrid.TileType.WALL)
+	assert_eq(grid_map.get_tile(Vector2i(5, 4)), TileGrid.TileType.WALL, "Set and get WALL tile")
 
-func test_horizontal_wall_blocker() -> void:
-	"""Test horizontal LoS blocked by wall (acceptance criteria)."""
-	# Create a grid with a wall blocker
-	# E E W E E
-	var grid = [
-		[0, 0, 1, 0, 0]
-	]
+	grid_map.set_tile(Vector2i(3, 2), TileGrid.TileType.EXIT)
+	assert_eq(grid_map.get_tile(Vector2i(3, 2)), TileGrid.TileType.EXIT, "Set and get EXIT tile")
 
-	# Test LoS blocked by wall
-	assert_false(
-		grid_map.has_line_of_sight(Vector2i(0, 0), Vector2i(4, 0), grid),
-		"Wall blocks horizontal LoS"
-	)
+## Test: set_tile handles out-of-bounds gracefully
+func test_set_tile_out_of_bounds() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	# This should not crash, just print a warning
+	grid_map.set_tile(Vector2i(100, 100), TileGrid.TileType.WALL)
+	# Test passes if no crash occurs
+	assert_true(true, "set_tile out of bounds doesn't crash")
 
-	# Test reverse direction
-	assert_false(
-		grid_map.has_line_of_sight(Vector2i(4, 0), Vector2i(0, 0), grid),
-		"Wall blocks horizontal LoS (reverse)"
-	)
+## Test: get_tile returns -1 for out-of-bounds
+func test_get_tile_out_of_bounds() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	assert_eq(grid_map.get_tile(Vector2i(-1, 0)), -1, "get_tile out of bounds returns -1")
+	assert_eq(grid_map.get_tile(Vector2i(100, 100)), -1, "get_tile far out of bounds returns -1")
 
-func test_vertical_wall_blocker() -> void:
-	"""Test vertical LoS blocked by wall (acceptance criteria)."""
-	# Create a grid with a wall blocker
-	# E
-	# E
-	# W
-	# E
-	# E
-	var grid = [
-		[0],
-		[0],
-		[1],
-		[0],
-		[0]
-	]
+## Test: FLOOR tiles are walkable
+func test_walkability_floor() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	grid_map.set_tile(Vector2i(5, 4), TileGrid.TileType.FLOOR)
+	assert_true(grid_map.is_walkable(Vector2i(5, 4)), "FLOOR tile is walkable")
 
-	# Test LoS blocked by wall
-	assert_false(
-		grid_map.has_line_of_sight(Vector2i(0, 0), Vector2i(0, 4), grid),
-		"Wall blocks vertical LoS"
-	)
+## Test: WALL tiles are not walkable
+func test_walkability_wall() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	grid_map.set_tile(Vector2i(5, 4), TileGrid.TileType.WALL)
+	assert_false(grid_map.is_walkable(Vector2i(5, 4)), "WALL tile is not walkable")
 
-func test_horizontal_closed_door_blocker() -> void:
-	"""Test horizontal LoS blocked by closed door (acceptance criteria)."""
-	# Create a grid with a closed door blocker
-	# E E DC E E
-	var grid = [
-		[0, 0, 3, 0, 0]  # 3 = DOOR_CLOSED
-	]
+## Test: EXIT tiles are walkable
+func test_walkability_exit() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	grid_map.set_tile(Vector2i(5, 4), TileGrid.TileType.EXIT)
+	assert_true(grid_map.is_walkable(Vector2i(5, 4)), "EXIT tile is walkable")
 
-	# Test LoS blocked by closed door
-	assert_false(
-		grid_map.has_line_of_sight(Vector2i(0, 0), Vector2i(4, 0), grid),
-		"Closed door blocks horizontal LoS"
-	)
+## Test: DOOR_OPEN tiles are walkable
+func test_walkability_door_open() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	grid_map.set_tile(Vector2i(5, 4), TileGrid.TileType.DOOR_OPEN)
+	assert_true(grid_map.is_walkable(Vector2i(5, 4)), "DOOR_OPEN tile is walkable")
 
-func test_vertical_closed_door_blocker() -> void:
-	"""Test vertical LoS blocked by closed door (acceptance criteria)."""
-	# Create a grid with a closed door blocker
-	# E
-	# E
-	# DC
-	# E
-	var grid = [
-		[0],
-		[0],
-		[3],  # 3 = DOOR_CLOSED
-		[0]
-	]
+## Test: DOOR_CLOSED tiles are not walkable by default
+func test_walkability_door_closed() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	grid_map.set_tile(Vector2i(5, 4), TileGrid.TileType.DOOR_CLOSED)
+	assert_false(grid_map.is_walkable(Vector2i(5, 4)), "DOOR_CLOSED tile is not walkable")
 
-	# Test LoS blocked by closed door
-	assert_false(
-		grid_map.has_line_of_sight(Vector2i(0, 0), Vector2i(0, 3), grid),
-		"Closed door blocks vertical LoS"
-	)
+## Test: Out-of-bounds positions are not walkable
+func test_walkability_out_of_bounds() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	assert_false(grid_map.is_walkable(Vector2i(-1, 0)), "Out of bounds is not walkable")
+	assert_false(grid_map.is_walkable(Vector2i(100, 100)), "Far out of bounds is not walkable")
 
-func test_horizontal_open_door_no_block() -> void:
-	"""Test horizontal LoS not blocked by open door."""
-	# Create a grid with an open door
-	# E E DO E E
-	var grid = [
-		[0, 0, 2, 0, 0]  # 2 = DOOR_OPEN
-	]
+## Test: Door state can be set to open
+func test_door_state_open() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	grid_map.set_tile(Vector2i(5, 4), TileGrid.TileType.DOOR_CLOSED)
+	grid_map.set_door_state(Vector2i(5, 4), true)
+	assert_true(grid_map.get_door_state(Vector2i(5, 4)), "Door state is open")
+	assert_true(grid_map.is_walkable(Vector2i(5, 4)), "Open door is walkable")
+	assert_eq(grid_map.get_tile(Vector2i(5, 4)), TileGrid.TileType.DOOR_OPEN, "Door tile updated to DOOR_OPEN")
 
-	# Test LoS not blocked by open door
-	assert_true(
-		grid_map.has_line_of_sight(Vector2i(0, 0), Vector2i(4, 0), grid),
-		"Open door does not block horizontal LoS"
-	)
+## Test: Door state can be set to closed
+func test_door_state_closed() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	grid_map.set_tile(Vector2i(5, 4), TileGrid.TileType.DOOR_OPEN)
+	grid_map.set_door_state(Vector2i(5, 4), false)
+	assert_false(grid_map.get_door_state(Vector2i(5, 4)), "Door state is closed")
+	assert_false(grid_map.is_walkable(Vector2i(5, 4)), "Closed door is not walkable")
+	assert_eq(grid_map.get_tile(Vector2i(5, 4)), TileGrid.TileType.DOOR_CLOSED, "Door tile updated to DOOR_CLOSED")
 
-func test_vertical_open_door_no_block() -> void:
-	"""Test vertical LoS not blocked by open door."""
-	# Create a grid with an open door
-	# E
-	# E
-	# DO
-	# E
-	var grid = [
-		[0],
-		[0],
-		[2],  # 2 = DOOR_OPEN
-		[0]
-	]
+## Test: Door state can be toggled
+func test_door_state_toggle() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	grid_map.set_tile(Vector2i(5, 4), TileGrid.TileType.DOOR_CLOSED)
 
-	# Test LoS not blocked by open door
-	assert_true(
-		grid_map.has_line_of_sight(Vector2i(0, 0), Vector2i(0, 3), grid),
-		"Open door does not block vertical LoS"
-	)
+	# Open the door
+	grid_map.set_door_state(Vector2i(5, 4), true)
+	assert_true(grid_map.is_walkable(Vector2i(5, 4)), "Door is walkable when open")
 
-func test_diagonal_no_los() -> void:
-	"""Test that diagonal positions don't have LoS."""
-	var grid = [
-		[0, 0, 0],
-		[0, 0, 0],
-		[0, 0, 0]
-	]
+	# Close the door
+	grid_map.set_door_state(Vector2i(5, 4), false)
+	assert_false(grid_map.is_walkable(Vector2i(5, 4)), "Door is not walkable when closed")
 
-	# Test diagonal positions
-	assert_false(
-		grid_map.has_line_of_sight(Vector2i(0, 0), Vector2i(2, 2), grid),
-		"Diagonal positions have no LoS"
-	)
+	# Open again
+	grid_map.set_door_state(Vector2i(5, 4), true)
+	assert_true(grid_map.is_walkable(Vector2i(5, 4)), "Door is walkable when opened again")
 
-	assert_false(
-		grid_map.has_line_of_sight(Vector2i(0, 2), Vector2i(2, 0), grid),
-		"Diagonal positions have no LoS (reverse diagonal)"
-	)
+## Test: get_neighbors_4dir returns 4 neighbors for center positions
+func test_get_neighbors_4dir_center() -> void:
+	var grid_map = TileGrid.new(10, 8)
+	var neighbors = grid_map.get_neighbors_4dir(Vector2i(5, 4))
+	assert_eq(neighbors.size(), 4, "Center position has 4 neighbors")
 
-func test_out_of_bounds() -> void:
-	"""Test that out-of-bounds checks work properly."""
-	var grid = [
-		[0, 0],
-		[0, 0]
-	]
+	# Check that all expected neighbors are present
+	var expected = [Vector2i(5, 3), Vector2i(6, 4), Vector2i(5, 5), Vector2i(4, 4)]
+	for neighbor in expected:
+		assert_true(neighbor in neighbors, "Neighbor %s is in list" % neighbor)
 
-	# Test with out-of-bounds target
-	assert_false(
-		grid_map.has_line_of_sight(Vector2i(0, 0), Vector2i(5, 0), grid),
-		"Out of bounds horizontal returns false"
-	)
+## Test: get_neighbors_4dir returns 2 neighbors for corner positions
+func test_get_neighbors_4dir_corner() -> void:
+	var grid_map = TileGrid.new(10, 8)
 
-	assert_false(
-		grid_map.has_line_of_sight(Vector2i(0, 0), Vector2i(0, 5), grid),
-		"Out of bounds vertical returns false"
-	)
+	# Top-left corner
+	var neighbors_tl = grid_map.get_neighbors_4dir(Vector2i(0, 0))
+	assert_eq(neighbors_tl.size(), 2, "Top-left corner has 2 neighbors")
 
-func test_adjacent_positions() -> void:
-	"""Test LoS for adjacent positions."""
-	var grid = [
-		[0, 0, 0],
-		[0, 0, 0]
-	]
+	# Bottom-right corner
+	var neighbors_br = grid_map.get_neighbors_4dir(Vector2i(9, 7))
+	assert_eq(neighbors_br.size(), 2, "Bottom-right corner has 2 neighbors")
 
-	# Adjacent horizontal
-	assert_true(
-		grid_map.has_line_of_sight(Vector2i(0, 0), Vector2i(1, 0), grid),
-		"Adjacent horizontal positions have LoS"
-	)
+## Test: get_neighbors_4dir returns 3 neighbors for edge positions
+func test_get_neighbors_4dir_edge() -> void:
+	var grid_map = TileGrid.new(10, 8)
 
-	# Adjacent vertical
-	assert_true(
-		grid_map.has_line_of_sight(Vector2i(0, 0), Vector2i(0, 1), grid),
-		"Adjacent vertical positions have LoS"
-	)
+	# Top edge (not corner)
+	var neighbors_top = grid_map.get_neighbors_4dir(Vector2i(5, 0))
+	assert_eq(neighbors_top.size(), 3, "Top edge has 3 neighbors")
 
-func test_multiple_blockers() -> void:
-	"""Test that first blocker is sufficient to block LoS."""
-	# Create a grid with multiple blockers
-	# E W W E
-	var grid = [
-		[0, 1, 1, 0]
-	]
+	# Left edge (not corner)
+	var neighbors_left = grid_map.get_neighbors_4dir(Vector2i(0, 4))
+	assert_eq(neighbors_left.size(), 3, "Left edge has 3 neighbors")
 
-	assert_false(
-		grid_map.has_line_of_sight(Vector2i(0, 0), Vector2i(3, 0), grid),
-		"First blocker blocks LoS (multiple blockers)"
-	)
+	# Right edge (not corner)
+	var neighbors_right = grid_map.get_neighbors_4dir(Vector2i(9, 4))
+	assert_eq(neighbors_right.size(), 3, "Right edge has 3 neighbors")
+
+	# Bottom edge (not corner)
+	var neighbors_bottom = grid_map.get_neighbors_4dir(Vector2i(5, 7))
+	assert_eq(neighbors_bottom.size(), 3, "Bottom edge has 3 neighbors")

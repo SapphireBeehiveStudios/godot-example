@@ -1,90 +1,168 @@
-extends Node
-## Grid Map Helper
+extends RefCounted
+class_name TileGrid
+## TileGrid - Pure logic class for grid-based map management
 ##
-## Provides utility functions for grid-based operations including
-## line-of-sight calculations for tactical games.
+## Manages a 2D grid of tiles with different types (wall, floor, door, exit).
+## Provides utilities for bounds checking, walkability, and neighbor queries.
 
 ## Enum for tile types
 enum TileType {
-	EMPTY = 0,      ## Empty/walkable tile
-	WALL = 1,       ## Solid wall that blocks LoS
-	DOOR_OPEN = 2,  ## Open door (does not block LoS)
-	DOOR_CLOSED = 3 ## Closed door (blocks LoS)
+	WALL = 0,       ## Solid wall that blocks movement and LoS
+	FLOOR = 1,      ## Walkable floor tile
+	DOOR_OPEN = 2,  ## Open door (walkable, does not block LoS)
+	DOOR_CLOSED = 3, ## Closed door (not walkable, blocks LoS)
+	EXIT = 4        ## Exit tile (walkable)
 }
 
-## Check if there is a clear line of sight between two positions
+## The 2D grid data structure
+## grid[y][x] or grid[row][column]
+var _grid: Array = []
+
+## Grid dimensions
+var width: int = 0
+var height: int = 0
+
+## Door states - tracks whether doors are open or closed
+## Key: Vector2i position, Value: bool (true = open, false = closed)
+var _door_states: Dictionary = {}
+
+## Initialize the GridMap with specified dimensions
 ##
-## This function checks if two positions share the same row or column,
-## and if so, checks all tiles between them for blockers (walls or closed doors).
+## @param grid_width: Width of the grid (number of columns)
+## @param grid_height: Height of the grid (number of rows)
+## @param default_tile: Default tile type to fill the grid with
+func _init(grid_width: int = 24, grid_height: int = 14, default_tile: TileType = TileType.FLOOR) -> void:
+	width = grid_width
+	height = grid_height
+	_grid = []
+
+	# Initialize grid with default tiles
+	for y in range(height):
+		var row: Array = []
+		for x in range(width):
+			row.append(default_tile)
+		_grid.append(row)
+
+## Check if a position is within grid bounds
 ##
-## @param from_pos: Starting position as Vector2i (x=column, y=row)
-## @param to_pos: Target position as Vector2i (x=column, y=row)
-## @param grid_data: 2D array representing the grid, where grid_data[row][col] contains TileType
-## @return: true if there is clear LoS, false otherwise
-func has_line_of_sight(from_pos: Vector2i, to_pos: Vector2i, grid_data: Array) -> bool:
-	# Check if positions are the same
-	if from_pos == to_pos:
-		return true
+## @param pos: Position to check as Vector2i (x=column, y=row)
+## @return: true if position is within bounds, false otherwise
+func is_in_bounds(pos: Vector2i) -> bool:
+	return pos.x >= 0 and pos.x < width and pos.y >= 0 and pos.y < height
 
-	# Check if positions share the same row (horizontal line)
-	if from_pos.y == to_pos.y:
-		return _check_horizontal_los(from_pos, to_pos, grid_data)
-
-	# Check if positions share the same column (vertical line)
-	if from_pos.x == to_pos.x:
-		return _check_vertical_los(from_pos, to_pos, grid_data)
-
-	# Diagonal or non-aligned positions don't have LoS in this implementation
-	return false
-
-## Check horizontal line of sight (same row)
-func _check_horizontal_los(from_pos: Vector2i, to_pos: Vector2i, grid_data: Array) -> bool:
-	var row = from_pos.y
-
-	# Validate row is within grid bounds
-	if row < 0 or row >= grid_data.size():
+## Check if a tile at the given position is walkable
+##
+## @param pos: Position to check as Vector2i (x=column, y=row)
+## @return: true if the tile is walkable, false otherwise
+func is_walkable(pos: Vector2i) -> bool:
+	# Out of bounds is not walkable
+	if not is_in_bounds(pos):
 		return false
 
-	var row_data = grid_data[row]
+	var tile = _grid[pos.y][pos.x]
 
-	# Get column range (start to end, exclusive of endpoints)
-	var start_col = min(from_pos.x, to_pos.x)
-	var end_col = max(from_pos.x, to_pos.x)
-
-	# Check each tile between the positions (exclusive)
-	for col in range(start_col + 1, end_col):
-		if col < 0 or col >= row_data.size():
+	# Check walkability based on tile type
+	match tile:
+		TileType.WALL:
+			return false
+		TileType.FLOOR:
+			return true
+		TileType.EXIT:
+			return true
+		TileType.DOOR_OPEN:
+			return true
+		TileType.DOOR_CLOSED:
+			# Check door state - if tracked and open, it's walkable
+			if _door_states.has(pos) and _door_states[pos]:
+				return true
+			return false
+		_:
+			# Unknown tile type, assume not walkable
 			return false
 
-		var tile_type = row_data[col]
-		if _is_blocker(tile_type):
-			return false
+## Get all valid neighbors in 4 directions (up, right, down, left)
+##
+## @param pos: Position to get neighbors for as Vector2i (x=column, y=row)
+## @return: Array of Vector2i positions representing valid neighbors
+func get_neighbors_4dir(pos: Vector2i) -> Array:
+	var neighbors: Array = []
 
-	return true
+	# 4-directional movement (up, right, down, left)
+	var directions = [
+		Vector2i(0, -1),  # up
+		Vector2i(1, 0),   # right
+		Vector2i(0, 1),   # down
+		Vector2i(-1, 0)   # left
+	]
 
-## Check vertical line of sight (same column)
-func _check_vertical_los(from_pos: Vector2i, to_pos: Vector2i, grid_data: Array) -> bool:
-	var col = from_pos.x
+	for direction in directions:
+		var neighbor = pos + direction
+		if is_in_bounds(neighbor):
+			neighbors.append(neighbor)
 
-	# Get row range (start to end, exclusive of endpoints)
-	var start_row = min(from_pos.y, to_pos.y)
-	var end_row = max(from_pos.y, to_pos.y)
+	return neighbors
 
-	# Check each tile between the positions (exclusive)
-	for row in range(start_row + 1, end_row):
-		if row < 0 or row >= grid_data.size():
-			return false
+## Set the tile type at a given position
+##
+## @param pos: Position to set as Vector2i (x=column, y=row)
+## @param tile_type: The TileType to set
+func set_tile(pos: Vector2i, tile_type: TileType) -> void:
+	if not is_in_bounds(pos):
+		push_warning("GridMap.set_tile: Position %s is out of bounds" % pos)
+		return
 
-		var row_data = grid_data[row]
-		if col < 0 or col >= row_data.size():
-			return false
+	_grid[pos.y][pos.x] = tile_type
 
-		var tile_type = row_data[col]
-		if _is_blocker(tile_type):
-			return false
+	# Initialize door state if setting a door tile
+	if tile_type == TileType.DOOR_OPEN:
+		_door_states[pos] = true
+	elif tile_type == TileType.DOOR_CLOSED:
+		_door_states[pos] = false
 
-	return true
+## Get the tile type at a given position
+##
+## @param pos: Position to get as Vector2i (x=column, y=row)
+## @return: The TileType at that position, or -1 if out of bounds
+func get_tile(pos: Vector2i) -> int:
+	if not is_in_bounds(pos):
+		return -1
 
-## Check if a tile type blocks line of sight
-func _is_blocker(tile_type: int) -> bool:
-	return tile_type == TileType.WALL or tile_type == TileType.DOOR_CLOSED
+	return _grid[pos.y][pos.x]
+
+## Set the door state at a given position
+##
+## @param pos: Position of the door as Vector2i (x=column, y=row)
+## @param is_open: true if door is open, false if closed
+func set_door_state(pos: Vector2i, is_open: bool) -> void:
+	if not is_in_bounds(pos):
+		push_warning("GridMap.set_door_state: Position %s is out of bounds" % pos)
+		return
+
+	var tile = _grid[pos.y][pos.x]
+	if tile != TileType.DOOR_OPEN and tile != TileType.DOOR_CLOSED:
+		push_warning("GridMap.set_door_state: Tile at %s is not a door" % pos)
+		return
+
+	_door_states[pos] = is_open
+
+	# Update the tile type to match the state
+	if is_open:
+		_grid[pos.y][pos.x] = TileType.DOOR_OPEN
+	else:
+		_grid[pos.y][pos.x] = TileType.DOOR_CLOSED
+
+## Get the door state at a given position
+##
+## @param pos: Position of the door as Vector2i (x=column, y=row)
+## @return: true if door is open, false if closed or not a door
+func get_door_state(pos: Vector2i) -> bool:
+	if not is_in_bounds(pos):
+		return false
+
+	return _door_states.get(pos, false)
+
+## Get the raw grid data for compatibility with pathfinding/LoS functions
+##
+## @return: 2D array representing the grid
+func get_grid_data() -> Array:
+	return _grid
