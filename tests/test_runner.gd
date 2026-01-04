@@ -12,26 +12,10 @@ func _init() -> void:
 	var total_passed := 0
 	var total_failed := 0
 
-	# List of test modules to run
-	var test_modules = [
-		"res://tests/test_smoke.gd",
-		"res://tests/test_example.gd",
-		"res://tests/test_ascii_title.gd",
-		"res://tests/test_game_state.gd",
-		"res://tests/test_save_system.gd",
-		"res://tests/test_turn_system.gd",
-		"res://tests/test_pathfinding.gd",
-		"res://tests/test_grid_map.gd",
-		"res://tests/test_guard.gd",
-		"res://tests/test_guard_system.gd",
-		"res://tests/test_game_manager.gd",
-		"res://tests/test_deterministic_rng.gd",
-		"res://tests/test_dungeon_generator.gd",
-		"res://tests/test_shard_exit.gd",
-		"res://tests/test_renderer.gd",
-		"res://tests/test_main_menu.gd",
-		"res://tests/test_floor_progression.gd",
-	]
+	# Auto-discover test modules
+	# Test files must follow the naming convention: test_*.gd
+	# This prevents merge conflicts when multiple PRs add new tests
+	var test_modules = _get_test_modules()
 
 	# Run each test module
 	for module_path in test_modules:
@@ -55,3 +39,30 @@ func _init() -> void:
 
 	# Exit with appropriate code
 	quit(0 if total_failed == 0 else 1)
+
+
+## Auto-discover test files in the tests directory
+## Returns an array of test module paths matching the pattern test_*.gd
+func _get_test_modules() -> Array:
+	var test_modules = []
+	var dir = DirAccess.open("res://tests/")
+
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+
+		while file_name != "":
+			# Include files that start with "test_" and end with ".gd"
+			# Exclude test_runner.gd itself
+			if file_name.begins_with("test_") and file_name.ends_with(".gd") and file_name != "test_runner.gd":
+				test_modules.append("res://tests/" + file_name)
+			file_name = dir.get_next()
+
+		dir.list_dir_end()
+	else:
+		push_error("Failed to open tests directory for test discovery")
+
+	# Sort alphabetically for deterministic ordering
+	test_modules.sort()
+
+	return test_modules
