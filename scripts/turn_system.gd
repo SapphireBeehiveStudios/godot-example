@@ -98,7 +98,7 @@ func get_grid_tile(pos: Vector2i) -> Dictionary:
 func is_tile_walkable(pos: Vector2i) -> bool:
 	"""Check if a tile can be walked on."""
 	var tile = get_grid_tile(pos)
-	# Walls and closed doors block movement
+	# Walls and closed doors block movement; traps are walkable
 	return tile.type != "wall" and tile.type != "door_closed"
 
 func set_player_position(pos: Vector2i) -> void:
@@ -132,6 +132,27 @@ func add_door(pos: Vector2i, is_open: bool = false) -> void:
 	"""Add a door at the specified position."""
 	var door_type = "door_open" if is_open else "door_closed"
 	set_grid_tile(pos, door_type)
+
+func add_trap(pos: Vector2i) -> void:
+	"""Add a trap tile at the specified position."""
+	set_grid_tile(pos, "trap", {"armed": true})
+
+func is_trap(pos: Vector2i) -> bool:
+	"""Check if a position has a trap."""
+	var tile = get_grid_tile(pos)
+	return tile.type == "trap"
+
+func is_trap_armed(pos: Vector2i) -> bool:
+	"""Check if a trap is armed."""
+	var tile = get_grid_tile(pos)
+	if tile.type == "trap":
+		return tile.get("armed", false)
+	return false
+
+func disarm_trap(pos: Vector2i) -> void:
+	"""Disarm a trap at the specified position (one-time use)."""
+	if is_trap(pos):
+		grid[pos]["armed"] = false
 
 func is_door(pos: Vector2i) -> bool:
 	"""Check if a position has a door (open or closed)."""
@@ -222,8 +243,18 @@ func execute_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> bool:
 			action_succeeded = false
 			turn_count += 1
 
-	# STEP 2: Resolve pickups on tile
+	# STEP 2: Resolve pickups and traps on tile
 	var current_tile = get_grid_tile(player_position)
+
+	# Handle trap trigger (Issue #94)
+	if current_tile.type == "trap" and current_tile.get("armed", false):
+		# Trigger trap - alert nearby guards
+		if guard_system != null:
+			guard_system.alert_guards_in_radius(player_position, 5)
+		message_generated.emit("Trap triggered! Guards alerted!", "trap")
+		# Disarm the trap (one-time use)
+		disarm_trap(player_position)
+
 	if current_tile.type == "pickup":
 		var pickup_type = current_tile.get("pickup_type", "unknown")
 
@@ -370,8 +401,19 @@ func process_turn(action: String, direction: Vector2i = Vector2i.ZERO) -> Dictio
 			result.action_result = "Unknown action: %s" % action
 			return result
 
-	# STEP 2: Resolve pickups on tile
+	# STEP 2: Resolve pickups and traps on tile
 	var current_tile = get_grid_tile(player_position)
+
+	# Handle trap trigger (Issue #94)
+	if current_tile.type == "trap" and current_tile.get("armed", false):
+		# Trigger trap - alert nearby guards
+		if guard_system != null:
+			guard_system.alert_guards_in_radius(player_position, 5)
+		message_generated.emit("Trap triggered! Guards alerted!", "trap")
+		# Disarm the trap (one-time use)
+		disarm_trap(player_position)
+		result.action_result += " (trap triggered!)"
+
 	if current_tile.type == "pickup":
 		var pickup_type = current_tile.get("pickup_type", "unknown")
 
