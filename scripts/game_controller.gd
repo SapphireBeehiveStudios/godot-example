@@ -261,6 +261,10 @@ func _on_floor_complete() -> void:
 
 func _on_game_lost() -> void:
 	"""Called when the game is lost (caught by guard)."""
+	# Flash red before showing end screen (Issue #90)
+	if hud:
+		hud.flash_red()
+
 	message_log.add_message("MISSION FAILED - Press R to restart", "failure")
 	game_active = false
 	# TODO: Show game over screen with restart option
