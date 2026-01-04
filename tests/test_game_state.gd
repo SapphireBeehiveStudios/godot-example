@@ -20,6 +20,8 @@ func run_all() -> Dictionary:
 	test_advance_floor()
 	test_add_score()
 	test_reset()
+	test_reset_preserve_seed()
+	test_set_run_seed()
 	test_to_dict()
 	test_from_dict()
 	test_serialization_round_trip()
@@ -215,3 +217,30 @@ func test_seed_as_int() -> void:
 	"""Test that seed can be an integer."""
 	var state = load("res://game_state.gd").new(42)
 	assert_eq(state.run_seed, 42, "Integer seed stored correctly")
+
+func test_reset_preserve_seed() -> void:
+	"""Test that reset with preserve_seed keeps the seed."""
+	var state = load("res://game_state.gd").new(12345)
+	state.floor_number = 5
+	state.turn_count = 42
+	state.keycards = 3
+	state.score = 1000
+
+	state.reset(true)  # Preserve seed
+
+	assert_eq(state.floor_number, 0, "Floor reset to 0")
+	assert_eq(state.turn_count, 0, "Turn count reset to 0")
+	assert_eq(state.keycards, 0, "Keycards reset to 0")
+	assert_eq(state.score, 0, "Score reset to 0")
+	assert_eq(state.run_seed, 12345, "Seed preserved")
+
+func test_set_run_seed() -> void:
+	"""Test the set_run_seed method."""
+	var state = load("res://game_state.gd").new()
+	assert_eq(state.run_seed, 0, "Seed starts at 0")
+
+	state.set_run_seed(99999)
+	assert_eq(state.run_seed, 99999, "Seed set to 99999")
+
+	state.set_run_seed("new_seed")
+	assert_eq(state.run_seed, "new_seed", "Seed set to string")
